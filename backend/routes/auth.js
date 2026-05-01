@@ -118,4 +118,43 @@ router.get('/roles', async (req, res) => {
   }
 });
 
+// POST /api/auth/switch-role (For testing purposes only)
+router.post('/switch-role', authenticate, async (req, res) => {
+  try {
+    const { role } = req.body;
+    
+    // Find role_id for the given role name
+    const [roleResult] = await pool.query('SELECT id FROM roles WHERE name = ?', [role]);
+    if (roleResult.length === 0) {
+      return res.status(400).json({ error: 'Invalid role.' });
+    }
+    
+    const roleId = roleResult[0].id;
+
+    // Update user's role in the database
+    await pool.query('UPDATE users SET role_id = ? WHERE id = ?', [roleId, req.user.id]);
+
+    // Fetch updated user to generate new token
+    const [users] = await pool.query(
+      'SELECT u.*, r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = ?',
+      [req.user.id]
+    );
+    const updatedUser = users[0];
+
+    // Generate new token
+    const token = jwt.sign({ userId: updatedUser.id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '24h'
+    });
+
+    res.json({
+      message: 'Role switched successfully.',
+      token,
+      user: { id: updatedUser.id, full_name: updatedUser.full_name, email: updatedUser.email, role: updatedUser.role, phone: updatedUser.phone }
+    });
+  } catch (error) {
+    console.error('Switch role error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 module.exports = router;

@@ -23,10 +23,21 @@ export async function api(endpoint: string, options: RequestOptions = {}) {
   }
 
   const response = await fetch(`${API_BASE}${endpoint}`, config);
-  const data = await response.json();
+  
+  // Safely parse — server might return HTML on 404 / not-started errors
+  const text = await response.text();
+  let data: Record<string, unknown> = {};
+  try {
+    data = JSON.parse(text);
+  } catch {
+    if (!response.ok) {
+      throw new Error(`Server error (${response.status}): Is the backend running? Restart it to pick up new routes.`);
+    }
+    throw new Error('Unexpected response from server. Check backend is running.');
+  }
 
   if (!response.ok) {
-    throw new Error(data.error || 'Something went wrong');
+    throw new Error((data.error as string) || 'Something went wrong');
   }
 
   return data;

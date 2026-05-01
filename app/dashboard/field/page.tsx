@@ -121,7 +121,7 @@ export default function FieldPage() {
             </div>
             <div className="flex gap-2 pt-3 border-t border-slate-100">
               {team.status === "Available" && (
-                <button onClick={() => setShowAssign(team.id)} className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors">
+                <button onClick={() => setShowAssign(team.id)} className="flex-1 px-3 py-1.5 bg-[#051522] text-white rounded-lg text-xs font-semibold hover:bg-[#0a243a] transition-colors">
                   Assign
                 </button>
               )}

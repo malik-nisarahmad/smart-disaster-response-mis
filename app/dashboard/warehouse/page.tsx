@@ -135,7 +135,7 @@ export default function WarehousePage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => setShowAllocate(r)} className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded-md text-xs font-semibold hover:bg-blue-700 transition-colors">
+                    <button onClick={() => setShowAllocate(r)} className="flex items-center gap-1 px-3 py-1 bg-[#051522] text-white rounded-md text-xs font-semibold hover:bg-[#0a243a] transition-colors">
                       <Send className="h-3 w-3" /> Allocate
                     </button>
                   </td>

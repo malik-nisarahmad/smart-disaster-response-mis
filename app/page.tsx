@@ -1,15 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
-import Link from "next/link";
-import { ShieldAlert, BarChart3, Users, Activity, ArrowRight, Sparkles, ChevronDown } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import React from "react";
+import { ShieldAlert, BarChart3, Users, Activity, MapPin } from "lucide-react";
+
+import Navbar from "@/components/layout/Navbar";
+import HeroSection from "@/components/ui/HeroSection";
+import FeatureSection from "@/components/ui/FeatureSection";
+import FAQSection from "@/components/ui/FAQSection";
 
 const faqs = [
   {
     question: "How do I verify my email?",
     answer:
-      "Click the link in the verification email from verify@codepen.io (check spam or other tabs if needed). Or email verify@codepen.io with the subject \"Verify\" from your account email.",
+      'Click the link in the verification email from verify@codepen.io (check spam or other tabs if needed). Or email verify@codepen.io with the subject "Verify" from your account email.',
   },
   {
     question: "My report loads indefinitely or crashes.",
@@ -33,185 +36,157 @@ const faqs = [
   },
 ];
 
-export default function Home() {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+/* ── Feature Visuals ── */
+function CoordinationVisual() {
+  return (
+    <>
+      <div className="absolute top-4 right-6 w-20 h-20 rounded-full bg-pink-300/40 blur-lg" />
+      <div className="absolute bottom-6 left-8 w-16 h-16 rounded-full bg-teal-300/50 blur-lg" />
+      <div className="relative flex items-center gap-4">
+        <div className="bg-white rounded-xl shadow-lg p-5 flex flex-col items-center gap-2">
+          <Activity className="h-10 w-10 text-pink-500" />
+          <div className="w-16 h-2 bg-pink-200 rounded-full" />
+          <div className="w-12 h-2 bg-slate-200 rounded-full" />
+        </div>
+        <div className="bg-white rounded-xl shadow-lg p-5 flex flex-col items-center gap-2 translate-y-6">
+          <Users className="h-10 w-10 text-teal-500" />
+          <div className="w-16 h-2 bg-teal-200 rounded-full" />
+          <div className="w-12 h-2 bg-slate-200 rounded-full" />
+        </div>
+        <div className="bg-white rounded-xl shadow-lg p-5 flex flex-col items-center gap-2 -translate-y-4">
+          <MapPin className="h-10 w-10 text-blue-500" />
+          <div className="w-16 h-2 bg-blue-200 rounded-full" />
+          <div className="w-12 h-2 bg-slate-200 rounded-full" />
+        </div>
+      </div>
+    </>
+  );
+}
 
-  const toggleIndex = (index: number) => {
-    setActiveIndex((current) => (current === index ? null : index));
-  };
+function AnalyticsVisual() {
+  return (
+    <>
+      <div className="absolute top-6 left-6 w-20 h-20 rounded-full bg-blue-300/40 blur-lg" />
+      <div className="absolute bottom-4 right-8 w-16 h-16 rounded-full bg-indigo-300/40 blur-lg" />
+      <div className="relative bg-white rounded-xl shadow-lg p-6 space-y-3">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 className="h-8 w-8 text-blue-500" />
+          <span className="font-bold text-black text-sm">Analytics Dashboard</span>
+        </div>
+        <div className="flex items-end gap-2 h-20">
+          <div className="w-6 bg-blue-400 rounded-t-md" style={{ height: "40%" }} />
+          <div className="w-6 bg-blue-500 rounded-t-md" style={{ height: "70%" }} />
+          <div className="w-6 bg-blue-400 rounded-t-md" style={{ height: "55%" }} />
+          <div className="w-6 bg-teal-400 rounded-t-md" style={{ height: "85%" }} />
+          <div className="w-6 bg-teal-500 rounded-t-md" style={{ height: "65%" }} />
+          <div className="w-6 bg-blue-300 rounded-t-md" style={{ height: "90%" }} />
+        </div>
+        <div className="flex gap-4 text-xs text-slate-400 pt-1">
+          <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function RolesVisual() {
+  const roles = [
+    { role: "Administrator", color: "bg-red-100 text-red-700", icon: "🛡️" },
+    { role: "Emergency Operator", color: "bg-orange-100 text-orange-700", icon: "📡" },
+    { role: "Field Officer", color: "bg-blue-100 text-blue-700", icon: "🗺️" },
+    { role: "Warehouse Manager", color: "bg-green-100 text-green-700", icon: "📦" },
+  ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 selection:bg-teal-500/30 overflow-hidden relative">
-      {/* Background Blurs / Glows (Light theme style matching Qvery) */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-pink-400/20 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-teal-400/20 blur-[120px] pointer-events-none" />
-      <div className="absolute inset-0 transition-all pointer-events-none" />
-
-      {/* Floating Pill Navbar */}
-      <header className="fixed top-4 left-0 right-0 z-50 w-full px-4 flex justify-center pointer-events-none">
-        <div className="w-full max-w-6xl bg-[#FFFFFF] rounded-xl shadow-sm border border-slate-200 flex h-16 items-center justify-between px-4 sm:px-6 pointer-events-auto">
-          
-          {/* Logo Section */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center bg-teal-400 text-white p-1 rounded-full shadow-sm">
-              <ShieldAlert className="h-6 w-6" />
-            </div>
-            <span className="text-xl font-extrabold tracking-tight text-black">Respond MIS</span>
+    <>
+      <div className="absolute top-4 right-8 w-16 h-16 rounded-full bg-purple-300/40 blur-lg" />
+      <div className="absolute bottom-6 left-6 w-20 h-20 rounded-full bg-teal-300/40 blur-lg" />
+      <div className="relative flex flex-col gap-3">
+        {roles.map((item) => (
+          <div key={item.role} className="bg-white rounded-lg shadow-md px-5 py-3 flex items-center gap-3">
+            <span className="text-lg">{item.icon}</span>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${item.color}`}>{item.role}</span>
           </div>
-          
-          {/* Centered Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-6 text-[15px] font-medium text-black">
-            <div className="flex items-center gap-1 cursor-pointer hover:text-slate-600 transition-colors">
-              Operations <ChevronDown className="h-4 w-4 text-slate-500" />
-            </div>
-            <div className="flex items-center gap-1 cursor-pointer hover:text-slate-600 transition-colors">
-              Sectors <ChevronDown className="h-4 w-4 text-slate-500" />
-            </div>
-            <Link href="/dashboard/finance" className="cursor-pointer hover:text-slate-600 transition-colors">
-              Finances
-            </Link>
-            <div className="flex items-center gap-1 cursor-pointer hover:text-slate-600 transition-colors">
-              Resources <ChevronDown className="h-4 w-4 text-slate-500" />
-            </div>
-          </nav>
+        ))}
+      </div>
+    </>
+  );
+}
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
-            <Link href="/signup" className="hidden sm:inline-flex h-9 items-center justify-center rounded-md bg-[#051522] px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0a243a]">
-              Sign Up
-            </Link>
-            <Link href="/login" className="inline-flex h-9 items-center justify-center rounded-md border-2 border-slate-200 bg-[#FFFFFF] px-5 text-sm font-semibold text-black transition-colors hover:bg-slate-50 hover:border-slate-300">
-              Log In
-            </Link>
-          </div>
+function SecureVisual() {
+  const steps = [
+    { label: "Request Created", status: "✓" },
+    { label: "Admin Approved", status: "✓" },
+    { label: "Funds Released", status: "✓" },
+    { label: "Log Recorded", status: "✓" },
+  ];
+
+  return (
+    <>
+      <div className="absolute top-6 left-8 w-20 h-20 rounded-full bg-orange-300/30 blur-lg" />
+      <div className="absolute bottom-4 right-6 w-16 h-16 rounded-full bg-emerald-300/40 blur-lg" />
+      <div className="relative bg-white rounded-xl shadow-lg p-6 space-y-4 w-56">
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="h-7 w-7 text-orange-500" />
+          <span className="font-bold text-black text-sm">Audit Trail</span>
         </div>
-      </header>
+        {steps.map((step) => (
+          <div key={step.label} className="flex items-center gap-3">
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 text-xs font-bold">
+              {step.status}
+            </span>
+            <span className="text-sm text-slate-700">{step.label}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ── Main Page ── */
+export default function Home() {
+  return (
+    <div className="flex flex-col min-h-screen bg-white text-slate-900 selection:bg-teal-500/30 overflow-hidden relative">
+      {/* Background Blurs / Glows (Qvery-style subtle gradient) */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute top-[5%] left-[5%] w-[35%] h-[35%] rounded-full bg-[#fecaca]/40 blur-[100px]" />
+        <div className="absolute top-[0%] right-[0%] w-[40%] h-[40%] rounded-full bg-[#ccfbf1]/50 blur-[100px]" />
+        <div className="absolute bottom-[10%] left-[20%] w-[30%] h-[30%] rounded-full bg-[#fde8e8]/30 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[10%] w-[35%] h-[35%] rounded-full bg-[#e0f2fe]/30 blur-[120px]" />
+      </div>
+
+      <Navbar />
 
       <main className="flex-1 relative z-10 pt-24">
-        <section className="w-full py-20 md:py-32 lg:py-48 flex items-center justify-center">
-          <div className="container px-4 md:px-6 flex flex-col items-center text-center space-y-10 animate-fade-in-up">
-            <div className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 backdrop-blur-md mb-4 shadow-[0_4px_15px_rgba(0,0,0,0.05)]">
-              <Sparkles className="mr-2 h-3.5 w-3.5 text-teal-500" />
-              <span>Next-Gen Incident Management</span>
-            </div>
-            <div className="space-y-6 max-w-[800px]">
-              <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl text-black">
-                Smart Disaster <br/>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 via-blue-500 to-indigo-500">
-                  Response MIS
-                </span>
-              </h1>
-              <p className="mx-auto max-w-[600px] text-lg text-slate-600 md:text-xl/relaxed lg:text-xl/relaxed leading-relaxed font-medium">
-                A highly secure, real-time management information system for tracking emergencies, managing rescues, and coordinating resources efficiently.
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Link href="/report" className="relative group inline-flex h-12 items-center justify-center rounded-md bg-[#051522] px-8 text-base font-semibold text-white shadow-lg transition-all hover:scale-105 hover:bg-[#0a243a]">
-                <ShieldAlert className="mr-2 h-5 w-5" />
-                Report Incident
-              </Link>
-              <Link href="/dashboard" className="relative group inline-flex h-12 items-center justify-center rounded-md border-2 border-slate-200 bg-[#FFFFFF] px-8 text-base font-semibold text-black shadow-sm transition-all hover:bg-slate-50 hover:border-slate-300 hover:scale-105">
-                Go to Dashboard
-                <ArrowRight className="ml-2 h-5 w-5 text-slate-400 group-hover:text-black transition-colors group-hover:translate-x-1" />
-              </Link>
-            </div>
-          </div>
-        </section>
+        <HeroSection />
 
-        <section id="features" className="w-full py-16 md:py-24 border-t border-slate-200 bg-white/50 backdrop-blur-sm flex justify-center">
-          <div className="container px-4 md:px-6">
-            <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-4 animate-[fade-in-up_1s_ease-out_0.2s_both] opacity-0">
-              
-              <div className="group flex flex-col items-start gap-4 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition-all hover:shadow-md hover:border-slate-300 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-pink-400/10 rounded-full blur-3xl transition-opacity opacity-0 group-hover:opacity-100" />
-                <Activity className="h-8 w-8 text-pink-500" />
-                <h3 className="text-xl font-bold text-black tracking-tight">Real-time Coordination</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">Track emergencies, teams, and resources in real-time with continuous AI-driven updates.</p>
-              </div>
+        <FeatureSection
+          title="Real-time Coordination"
+          description="Track emergencies, teams, and resources in real-time with continuous updates. Monitor field agents, dispatch rescue teams, and coordinate response efforts all from a single live dashboard."
+          visual={<CoordinationVisual />}
+        />
 
-              <div className="group flex flex-col items-start gap-4 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition-all hover:shadow-md hover:border-slate-300 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl transition-opacity opacity-0 group-hover:opacity-100" />
-                <BarChart3 className="h-8 w-8 text-blue-500" />
-                <h3 className="text-xl font-bold text-black tracking-tight">Advanced Analytics</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">Insightful dashboards directly reflecting current operations and financial statuses.</p>
-              </div>
+        <FeatureSection
+          title="Advanced Analytics"
+          description="Insightful dashboards directly reflecting current operations and financial statuses. Visualize incident trends, resource utilization, and response times with powerful real-time charts."
+          visual={<AnalyticsVisual />}
+          reverse
+        />
 
-              <div className="group flex flex-col items-start gap-4 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition-all hover:shadow-md hover:border-slate-300 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-3xl transition-opacity opacity-0 group-hover:opacity-100" />
-                <Users className="h-8 w-8 text-teal-500" />
-                <h3 className="text-xl font-bold text-black tracking-tight">Role-Based Access</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">Robust RBAC ensuring admins, operators, field agents, and warehouse managers see what they need.</p>
-              </div>
+        <FeatureSection
+          title="Role-Based Access"
+          description="Robust RBAC ensuring admins, operators, field agents, and warehouse managers see exactly what they need. Each role has a tailored dashboard with precise permissions and workflows."
+          visual={<RolesVisual />}
+        />
 
-              <div className="group flex flex-col items-start gap-4 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm transition-all hover:shadow-md hover:border-slate-300 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl transition-opacity opacity-0 group-hover:opacity-100" />
-                <ShieldAlert className="h-8 w-8 text-orange-500" />
-                <h3 className="text-xl font-bold text-black tracking-tight">Secure Transactions</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">ACID compliant workflows, transparent approval states, and full audit logs.</p>
-              </div>
+        <FeatureSection
+          title="Secure Transactions"
+          description="ACID compliant workflows, transparent approval states, and full audit logs. Every resource allocation and financial transaction goes through a verified approval chain with complete traceability."
+          visual={<SecureVisual />}
+          reverse
+        />
 
-            </div>
-          </div>
-        </section>
-
-        <section className="w-full py-20 md:py-28 flex justify-center">
-          <div className="container px-4 md:px-6">
-            <div className="text-center space-y-3">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-500 font-semibold">FAQs</p>
-              <h3 className="text-3xl sm:text-4xl font-extrabold text-black tracking-tight">
-                Clear answers, fast response
-              </h3>
-              <p className="text-sm sm:text-base text-slate-600 font-medium max-w-2xl mx-auto">
-                Everything you need to know about submitting reports, response times, and data privacy.
-              </p>
-            </div>
-
-            <div className="mt-10 grid gap-4 max-w-3xl mx-auto">
-              {faqs.map((item, index) => {
-                const isOpen = activeIndex === index;
-                return (
-                  <div
-                    key={item.question}
-                    className="rounded-2xl border border-slate-200 bg-white shadow-[0_5px_10px_rgba(0,0,0,0.08)] transition-all"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggleIndex(index)}
-                      className="relative w-full text-left"
-                    >
-                      <div className="flex items-center px-5 sm:px-6 py-4 pr-16 text-base sm:text-lg font-semibold text-black">
-                        {item.question}
-                      </div>
-                      <span
-                        className={`absolute right-4 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-3xl text-slate-500 transition-transform duration-75 ${
-                          isOpen ? "rotate-45 text-black" : "rotate-0"
-                        }`}
-                      >
-                        +
-                      </span>
-                    </button>
-                    <AnimatePresence initial={false}>
-                      {isOpen ? (
-                        <motion.div
-                          key="content"
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.1, ease: "easeOut" }}
-                          className="overflow-hidden"
-                        >
-                          <div className="px-5 sm:px-6 pb-5 text-sm sm:text-base text-slate-600 leading-relaxed">
-                            {item.answer}
-                          </div>
-                        </motion.div>
-                      ) : null}
-                    </AnimatePresence>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+        <FAQSection items={faqs} />
       </main>
     </div>
   );
