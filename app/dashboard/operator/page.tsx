@@ -33,6 +33,12 @@ interface Emergency {
   status: string;
   operator_name: string | null;
   reported_at: string;
+  // New enriched fields from updated API
+  active_teams: number;
+  assigned_teams: string | null;
+  admitted_patients: number;
+  allocated_budget: number | null;
+  spent_budget: number | null;
 }
 
 const severityConfig: Record<string, { color: string; bg: string; dot: string }> = {
@@ -69,6 +75,9 @@ export default function OperatorPage() {
   const [filterSeverity, setFilterSeverity] = useState("");
   const [selected, setSelected] = useState<Emergency | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<any>(null);          // full detail incl. teams/patients/budget
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [autoAssigning, setAutoAssigning] = useState(false);
 
   const fetchEmergencies = async () => {
     setLoading(true);
@@ -85,7 +94,38 @@ export default function OperatorPage() {
     }
   };
 
+  const fetchDetail = async (id: number) => {
+    setLoadingDetail(true);
+    setDetail(null);
+    try {
+      const data = await api(`/emergencies/${id}`);
+      setDetail(data);
+    } catch (err) { console.error(err); }
+    finally { setLoadingDetail(false); }
+  };
+
   useEffect(() => { fetchEmergencies(); }, [filterStatus, filterSeverity]);
+
+  const handleSelect = (em: Emergency | null) => {
+    setSelected(em);
+    if (em) fetchDetail(em.id);
+    else setDetail(null);
+  };
+
+  const autoAssignTeam = async (emergencyId: number) => {
+    setAutoAssigning(true);
+    try {
+      const result = await api("/rescue-teams/auto-assign", {
+        method: "POST",
+        body: { emergency_id: emergencyId }
+      });
+      alert(`✓ ${result.message}`);
+      await fetchEmergencies();
+      fetchDetail(emergencyId);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Auto-assign failed");
+    } finally { setAutoAssigning(false); }
+  };
 
   const updateStatus = async (id: number, status: string) => {
     setUpdatingId(id);
@@ -94,6 +134,7 @@ export default function OperatorPage() {
       await fetchEmergencies();
       if (selected?.id === id) {
         setSelected(prev => prev ? { ...prev, status } : null);
+        fetchDetail(id);
       }
     } catch (err) {
       console.error(err);
@@ -207,7 +248,7 @@ export default function OperatorPage() {
               const sev = severityConfig[em.severity] || severityConfig.Low;
               const sta = statusConfig[em.status] || statusConfig.Pending;
               return (
-                <button key={em.id} onClick={() => setSelected(isSelected ? null : em)}
+                 <button key={em.id} onClick={() => handleSelect(isSelected ? null : em)}
                   className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${isSelected
                       ? "bg-blue-50 border-blue-200 shadow-sm"
                       : "bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50"
@@ -251,7 +292,7 @@ export default function OperatorPage() {
             </button>
           </div>
           <div className="flex-1 px-4 pb-4 min-h-[320px]">
-            <EmergencyMap emergencies={emergencies} selected={selected} onSelect={setSelected} />
+            <EmergencyMap emergencies={emergencies} selected={selected} onSelect={handleSelect} />
           </div>
           <div className="flex items-center gap-4 px-5 pb-4 text-xs font-semibold text-slate-600">
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />High</span>
@@ -265,7 +306,7 @@ export default function OperatorPage() {
           <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
             <h2 className="text-base font-bold text-slate-900">Report Details</h2>
             {selected && (
-              <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-700 transition-colors">
+              <button onClick={() => handleSelect(null)} className="text-slate-400 hover:text-slate-700 transition-colors">
                 <X className="h-4 w-4" />
               </button>
             )}
@@ -343,11 +384,96 @@ export default function OperatorPage() {
                       {updatingId === selected.id ? "Updating..." : nextStatus[selected.status] === "Resolved" ? "Resolve" : nextStatus[selected.status]}
                     </button>
                   )}
-                  <button className="w-full py-2.5 bg-white border-2 border-slate-200 text-slate-700 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors">
-                    <Plus className="h-4 w-4" /> Add Update
-                  </button>
+                  {/* Auto-assign nearest rescue team */}
+                  {selected.status !== "Resolved" && selected.status !== "Closed" && (
+                    <button
+                      onClick={() => autoAssignTeam(selected.id)}
+                      disabled={autoAssigning}
+                      className="w-full py-2.5 bg-orange-600 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-sm"
+                    >
+                      <MapPin className="h-4 w-4" />
+                      {autoAssigning ? "Finding nearest team..." : "Auto-Assign Nearest Team"}
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* Assigned Rescue Teams */}
+              {loadingDetail ? (
+                <div className="text-xs text-slate-400">Loading details...</div>
+              ) : detail && (
+                <>
+                  {detail.teams && detail.teams.length > 0 && (
+                    <div>
+                      <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Rescue Teams ({detail.teams.length})</p>
+                      <div className="space-y-1.5">
+                        {detail.teams.map((t: any) => (
+                          <div key={t.assignment_id} className="bg-orange-50 rounded-lg px-3 py-2 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-orange-800">{t.team_name}</span>
+                              <span className={`px-1.5 py-0.5 rounded-full font-semibold ${
+                                t.assignment_status === "Active" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
+                              }`}>{t.assignment_status}</span>
+                            </div>
+                            <div className="text-slate-500 mt-0.5">{t.team_type} · Leader: {t.leader_name}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Admitted Patients */}
+                  {detail.patients && detail.patients.length > 0 && (
+                    <div>
+                      <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Admitted Patients ({detail.patients.length})</p>
+                      <div className="space-y-1.5">
+                        {detail.patients.map((p: any) => (
+                          <div key={p.id} className="bg-blue-50 rounded-lg px-3 py-2 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-blue-800">{p.patient_name}</span>
+                              <span className={`px-1.5 py-0.5 rounded-full font-semibold ${
+                                p.condition_severity === "Critical" ? "bg-red-100 text-red-700" :
+                                p.condition_severity === "Serious" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"
+                              }`}>{p.condition_severity}</span>
+                            </div>
+                            <div className="text-slate-500 mt-0.5">{p.hospital_name} · {p.gender}, {p.age ?? "?"} yrs</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Budget */}
+                  {detail.budget && (
+                    <div>
+                      <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Budget</p>
+                      <div className="bg-emerald-50 rounded-lg px-3 py-2 text-xs space-y-1">
+                        <div className="flex justify-between"><span className="text-slate-500">Allocated</span><span className="font-bold">${Number(detail.budget.total_budget).toLocaleString()}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Spent</span><span className="font-bold text-red-600">${Number(detail.budget.spent).toLocaleString()}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Remaining</span><span className="font-bold text-green-600">${Number(detail.budget.remaining).toLocaleString()}</span></div>
+                        <div className="w-full bg-white rounded-full h-1.5 mt-1">
+                          <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${Math.min(detail.budget.utilization_pct ?? 0, 100)}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Finance Transactions */}
+                  {detail.transactions && detail.transactions.length > 0 && (
+                    <div>
+                      <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Financial ({detail.transactions.length})</p>
+                      <div className="space-y-1">
+                        {detail.transactions.slice(0,3).map((tx: any) => (
+                          <div key={tx.id} className="flex justify-between text-xs">
+                            <span className="text-slate-600">{tx.transaction_type}</span>
+                            <span className="font-bold">${Number(tx.amount).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* Timeline */}
               <div>

@@ -2,12 +2,52 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../database/connection');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, validate } = require('../middleware/auth');
 
 const router = express.Router();
 
+// --- Rate Limiter (in-memory, no extra packages needed) ---
+// Tracks: ip -> { count, firstRequestAt }
+const loginAttempts = new Map();
+const RATE_LIMIT = 5;          // max attempts
+const RATE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+const rateLimitLogin = (req, res, next) => {
+  const ip = req.ip || req.connection.remoteAddress;
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+
+  if (entry) {
+    // Reset window if expired
+    if (now - entry.firstRequestAt > RATE_WINDOW_MS) {
+      loginAttempts.set(ip, { count: 1, firstRequestAt: now });
+      return next();
+    }
+    if (entry.count >= RATE_LIMIT) {
+      const retryAfter = Math.ceil((RATE_WINDOW_MS - (now - entry.firstRequestAt)) / 1000);
+      res.set('Retry-After', retryAfter);
+      return res.status(429).json({
+        error: `Too many login attempts. Please try again in ${Math.ceil(retryAfter / 60)} minute(s).`
+      });
+    }
+    entry.count++;
+  } else {
+    loginAttempts.set(ip, { count: 1, firstRequestAt: now });
+  }
+  next();
+};
+
+// Clear a successful login from rate limiter
+const clearRateLimit = (ip) => loginAttempts.delete(ip);
+
 // POST /api/auth/signup
-router.post('/signup', async (req, res) => {
+router.post('/signup',
+  validate({
+    full_name: { required: true, maxLength: 100 },
+    email:     { required: true, type: 'email', maxLength: 150 },
+    password:  { required: true, maxLength: 128 },
+  }),
+  async (req, res) => {
   try {
     const { full_name, email, password, phone, role_id } = req.body;
 
@@ -46,13 +86,16 @@ router.post('/signup', async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login',
+  rateLimitLogin,
+  validate({
+    email:    { required: true, type: 'email' },
+    password: { required: true },
+  }),
+  async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required.' });
-    }
+    const ip = req.ip || req.connection.remoteAddress;
 
     const [users] = await pool.query(
       'SELECT u.*, r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.email = ?',
@@ -73,6 +116,9 @@ router.post('/login', async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
+
+    // Clear rate-limit counter on successful login
+    clearRateLimit(ip);
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || '24h'
@@ -114,6 +160,48 @@ router.get('/roles', async (req, res) => {
     const [roles] = await pool.query('SELECT * FROM roles ORDER BY id');
     res.json({ roles });
   } catch (error) {
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// PATCH /api/auth/users/:id - Admin: update user role or active status
+router.patch('/users/:id', authenticate, async (req, res) => {
+  try {
+    if (req.user.role !== 'Administrator') {
+      return res.status(403).json({ error: 'Administrator access required.' });
+    }
+    const userId = parseInt(req.params.id);
+    if (userId === req.user.id) return res.status(400).json({ error: 'Cannot modify your own account.' });
+
+    const { role_id, is_active } = req.body;
+    const updates = [];
+    const params = [];
+
+    if (role_id !== undefined) {
+      // Validate role exists
+      const [roles] = await pool.query('SELECT id FROM roles WHERE id = ?', [parseInt(role_id)]);
+      if (roles.length === 0) return res.status(400).json({ error: 'Invalid role_id.' });
+      updates.push('role_id = ?');
+      params.push(parseInt(role_id));
+    }
+    if (is_active !== undefined) {
+      updates.push('is_active = ?');
+      params.push(is_active ? 1 : 0);
+    }
+    if (updates.length === 0) return res.status(400).json({ error: 'No fields to update.' });
+
+    params.push(userId);
+    await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
+
+    // Audit
+    await pool.query(
+      'INSERT INTO audit_logs (user_id, action, table_name, record_id, new_values, ip_address) VALUES (?,?,?,?,?,?)',
+      [req.user.id, 'ADMIN_UPDATE_USER', 'users', userId, JSON.stringify(req.body), req.ip]
+    );
+
+    res.json({ message: 'User updated.', id: userId });
+  } catch (error) {
+    console.error('Update user error:', error);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });

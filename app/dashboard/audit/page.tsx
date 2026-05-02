@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ScrollText, RefreshCw, Filter, ChevronDown } from "lucide-react";
+import { ScrollText, RefreshCw, Search, X } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface AuditLog {
@@ -10,20 +10,23 @@ interface AuditLog {
   logged_at: string; user_name: string; user_email: string; user_role: string;
 }
 
-const actionColors: Record<string, string> = {
-  LOGIN: "bg-green-100 text-green-800",
-  FINANCIAL_TRANSACTION_CREATED: "bg-blue-100 text-blue-800",
-  UPDATE_EMERGENCY_STATUS: "bg-orange-100 text-orange-800",
-  ASSIGN_TEAM: "bg-purple-100 text-purple-800",
-  APPROVAL_APPROVED: "bg-green-100 text-green-800",
-  APPROVAL_REJECTED: "bg-red-100 text-red-800",
-  CREATE_RESOURCE: "bg-teal-100 text-teal-800",
-  CREATE_TEAM: "bg-blue-100 text-blue-800",
+const actionCfg: Record<string, { badge: string; emoji: string }> = {
+  LOGIN:                          { badge: "bg-blue-50 text-blue-700 border-blue-200",   emoji: "🔑" },
+  FINANCIAL_TRANSACTION_CREATED:  { badge: "bg-indigo-50 text-indigo-700 border-indigo-200", emoji: "💰" },
+  UPDATE_EMERGENCY_STATUS:        { badge: "bg-orange-50 text-orange-700 border-orange-200", emoji: "🚨" },
+  ASSIGN_TEAM:                    { badge: "bg-violet-50 text-violet-700 border-violet-200", emoji: "👥" },
+  APPROVAL_APPROVED:              { badge: "bg-blue-50 text-blue-700 border-blue-200",   emoji: "✅" },
+  APPROVAL_REJECTED:              { badge: "bg-red-50 text-red-700 border-red-200",      emoji: "❌" },
+  CREATE_RESOURCE:                { badge: "bg-amber-50 text-amber-700 border-amber-200",emoji: "📦" },
+  CREATE_TEAM:                    { badge: "bg-indigo-50 text-indigo-700 border-indigo-200", emoji: "🚁" },
+  LOCATION_UPDATE:                { badge: "bg-teal-50 text-teal-700 border-teal-200",   emoji: "📍" },
 };
 
 export default function AuditPage() {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [logs, setLogs]         = useState<AuditLog[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [search, setSearch]     = useState("");
+  const [actionFilter, setActionFilter] = useState("all");
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -34,62 +37,106 @@ export default function AuditPage() {
 
   useEffect(() => { fetchLogs(); }, []);
 
+  const actions    = ["all", ...Array.from(new Set(logs.map(l => l.action)))];
+  const filtered   = logs.filter(l => {
+    const matchSearch = search === "" || l.user_name?.toLowerCase().includes(search.toLowerCase()) || l.action.toLowerCase().includes(search.toLowerCase());
+    const matchAction = actionFilter === "all" || l.action === actionFilter;
+    return matchSearch && matchAction;
+  });
+
+  const loginCount  = logs.filter(l => l.action === "LOGIN").length;
+  const errorCount  = logs.filter(l => l.action.includes("REJECTED") || l.action.includes("FAIL")).length;
+  const uniqueUsers = new Set(logs.map(l => l.user_name).filter(Boolean)).size;
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 pb-8">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Audit Logs</h1>
-          <p className="text-slate-500">Complete traceability of all system actions.</p>
+          <h1 className="text-3xl font-extrabold text-[#051522] tracking-tight">Audit Logs</h1>
+          <p className="text-slate-500 font-medium mt-1">Complete traceability of all system actions.</p>
         </div>
-        <button onClick={fetchLogs} className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 shadow-sm">
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+        <button onClick={fetchLogs} className="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-[#f4f7fe] shadow-sm">
+          <RefreshCw className={`h-4 w-4 text-slate-500 ${loading ? "animate-spin" : ""}`} />
         </button>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center gap-2">
+      {/* KPI Banners */}
+      <div className="grid grid-cols-4 gap-4">
+        {[
+          { label: "Total Events",   val: logs.length,   bg: "from-[#051522] to-[#0a243a]" },
+          { label: "Login Events",   val: loginCount,    bg: "from-blue-600 to-indigo-700" },
+          { label: "Active Users",   val: uniqueUsers,   bg: "from-violet-600 to-purple-700" },
+          { label: "Error Events",   val: errorCount,    bg: errorCount > 0 ? "from-red-500 to-rose-600" : "from-slate-500 to-slate-600" },
+        ].map(c => (
+          <div key={c.label} className={`bg-gradient-to-br ${c.bg} rounded-[28px] p-5 text-white shadow-lg`}>
+            <div className="text-3xl font-extrabold">{c.val}</div>
+            <div className="text-sm font-semibold opacity-75 mt-1">{c.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-3 flex-wrap items-center">
+        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2.5 flex-1 min-w-52 shadow-sm">
+          <Search className="h-4 w-4 text-slate-400 flex-shrink-0" />
+          <input placeholder="Search by user or action..." value={search} onChange={e => setSearch(e.target.value)}
+            className="bg-transparent text-sm outline-none w-full placeholder-slate-400 text-slate-800" />
+          {search && <button onClick={() => setSearch("")}><X className="h-3.5 w-3.5 text-slate-400" /></button>}
+        </div>
+        <select value={actionFilter} onChange={e => setActionFilter(e.target.value)}
+          className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 outline-none shadow-sm">
+          {actions.map(a => <option key={a} value={a}>{a === "all" ? "All Actions" : a}</option>)}
+        </select>
+        <span className="text-xs text-slate-400 font-medium">{filtered.length} of {logs.length} entries</span>
+      </div>
+
+      {/* Logs Table */}
+      <div className="bg-white rounded-[28px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100">
           <ScrollText className="h-5 w-5 text-slate-400" />
-          <h2 className="font-bold text-lg">Activity Log</h2>
-          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">{logs.length} entries</span>
+          <h2 className="font-extrabold text-[#051522]">System Activity Log</h2>
+          <span className="text-xs bg-[#f4f7fe] text-slate-600 px-2.5 py-1 rounded-full font-bold">{filtered.length} entries</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
-                <th className="text-left px-4 py-3 font-semibold text-slate-600">Timestamp</th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-600">User</th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-600">Role</th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-600">Action</th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-600">Table</th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-600">Record</th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-600">IP</th>
+              <tr className="border-b border-slate-100 bg-[#f4f7fe]">
+                {["Timestamp", "User", "Role", "Action", "Table", "Record", "IP"].map(h => (
+                  <th key={h} className="text-left px-5 py-3.5 text-xs font-extrabold text-slate-500 uppercase tracking-wider">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {logs.map(log => (
-                <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3 text-xs text-slate-500 font-mono">{new Date(log.logged_at).toLocaleString()}</td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-xs">{log.user_name || "System"}</div>
-                    <div className="text-xs text-slate-400">{log.user_email || ""}</div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{log.user_role || "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${actionColors[log.action] || "bg-slate-100 text-slate-800"}`}>
-                      {log.action}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-500 font-mono">{log.table_name || "—"}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">#{log.record_id || "—"}</td>
-                  <td className="px-4 py-3 text-xs text-slate-400 font-mono">{log.ip_address || "—"}</td>
-                </tr>
-              ))}
+              {filtered.map(log => {
+                const cfg = actionCfg[log.action];
+                return (
+                  <tr key={log.id} className="border-b border-slate-50 hover:bg-[#f4f7fe] transition-colors">
+                    <td className="px-5 py-3 text-xs text-slate-400 font-mono whitespace-nowrap">
+                      {new Date(log.logged_at).toLocaleString()}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="font-bold text-[#051522] text-xs">{log.user_name || "System"}</div>
+                      <div className="text-xs text-slate-400">{log.user_email || ""}</div>
+                    </td>
+                    <td className="px-5 py-3 text-xs text-slate-500">{log.user_role || "—"}</td>
+                    <td className="px-5 py-3">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${cfg?.badge || "bg-slate-100 text-slate-700 border-slate-200"}`}>
+                        {cfg?.emoji} {log.action.replace(/_/g, " ")}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-xs text-slate-400 font-mono">{log.table_name || "—"}</td>
+                    <td className="px-5 py-3 text-xs text-slate-400">#{log.record_id || "—"}</td>
+                    <td className="px-5 py-3 text-xs text-slate-400 font-mono">{log.ip_address || "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+          {filtered.length === 0 && !loading && (
+            <div className="p-12 text-center text-slate-400 font-medium">No audit logs found.</div>
+          )}
         </div>
-        {logs.length === 0 && !loading && (
-          <div className="p-8 text-center text-slate-400">No audit logs found.</div>
-        )}
       </div>
     </div>
   );

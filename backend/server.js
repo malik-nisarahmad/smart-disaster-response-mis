@@ -25,6 +25,7 @@ app.use('/api/rescue-teams', require('./routes/rescueTeams'));
 app.use('/api/resources', require('./routes/resources'));
 app.use('/api/hospitals', require('./routes/hospitals'));
 app.use('/api/finance', require('./routes/finance'));
+app.use('/api/budgets', require('./routes/budgets'));
 app.use('/api/approvals', require('./routes/approvals'));
 app.use('/api/analytics', require('./routes/analytics'));
 
