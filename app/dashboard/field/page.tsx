@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import {
   Users, Plus, RefreshCw, X, MapPin, Navigation,
-  Crosshair, Zap, CheckCircle, Clock, AlertTriangle
+  Crosshair, Zap, CheckCircle, Clock, AlertTriangle, History, ChevronDown, ChevronUp, Activity
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -29,6 +29,13 @@ interface Team {
   current_longitude: number | null;
   total_assignments: number;
   completed_assignments: number;
+}
+
+interface ActivityLog {
+  id: number;
+  activity_type: string;
+  description: string;
+  logged_at: string;
 }
 
 const statusBadge: Record<string, string> = {
@@ -63,6 +70,9 @@ export default function FieldPage() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal]     = useState<ModalType>(null);
   const [activeTeam, setActiveTeam] = useState<Team | null>(null);
+  const [expandedActivityId, setExpandedActivityId] = useState<number | null>(null);
+  const [activityMap, setActivityMap] = useState<Record<number, ActivityLog[]>>({});
+  const [loadingActivity, setLoadingActivity] = useState<Record<number, boolean>>({});
 
   const [emergencyId, setEmergencyId] = useState("");
   const [assignNotes, setAssignNotes] = useState("");
@@ -82,11 +92,37 @@ export default function FieldPage() {
   const fetchTeams = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api("/rescue-teams");
-      setTeams(data.data);
+      const data = await api("/rescue-teams") as { data?: Team[] };
+      const teamList: Team[] = Array.isArray(data.data) ? data.data : [];
+      setTeams(teamList);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }, []);
+
+  const fetchActivityHistory = async (teamId: number) => {
+    setLoadingActivity(prev => ({ ...prev, [teamId]: true }));
+    try {
+      const data = await api(`/rescue-teams/activity/${teamId}`) as { data?: ActivityLog[] };
+      const activityList: ActivityLog[] = Array.isArray(data.data) ? data.data : [];
+      setActivityMap(prev => {
+        const next: Record<number, ActivityLog[]> = { ...prev };
+        next[teamId] = activityList;
+        return next;
+      });
+    } catch (err) { console.error(err); }
+    finally { setLoadingActivity(prev => ({ ...prev, [teamId]: false })); }
+  };
+
+  const toggleActivityHistory = async (teamId: number) => {
+    if (expandedActivityId === teamId) {
+      setExpandedActivityId(null);
+    } else {
+      setExpandedActivityId(teamId);
+      if (!activityMap[teamId]) {
+        await fetchActivityHistory(teamId);
+      }
+    }
+  };
 
   useEffect(() => { fetchTeams(); }, [fetchTeams]);
 
@@ -198,25 +234,46 @@ export default function FieldPage() {
       </div>
 
       {/* KPI Banners */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: "Total Teams",   val: teams.length, icon: "👥", bg: "from-[#051522] to-[#0a243a]" },
-          { label: "Available",     val: available,    icon: "✅", bg: "from-blue-600 to-indigo-700" },
-          { label: "On Mission",    val: onMission,    icon: "⚡", bg: "from-violet-600 to-purple-700" },
-          { label: "No GPS",        val: noGPS,        icon: "📍", bg: noGPS > 0 ? "from-red-500 to-rose-600" : "from-slate-500 to-slate-600" },
-        ].map(c => (
-          <div key={c.label} className={`bg-gradient-to-br ${c.bg} rounded-[28px] p-5 text-white shadow-lg`}>
-            <div className="text-3xl mb-2">{c.icon}</div>
-            <div className="text-3xl font-extrabold">{c.val}</div>
-            <div className="text-sm font-semibold opacity-80 mt-1">{c.label}</div>
+          { label: "Total Teams", val: teams.length, icon: Users, bg: "from-blue-600 to-blue-800", shadow: "shadow-blue-500/30" },
+          { label: "Available",   val: available,    icon: CheckCircle, bg: "from-emerald-500 to-emerald-700", shadow: "shadow-emerald-500/30" },
+          { label: "On Mission",  val: onMission,    icon: Zap, bg: "from-purple-600 to-indigo-700", shadow: "shadow-purple-500/30" },
+          { label: "No GPS",      val: noGPS,        icon: MapPin, bg: noGPS > 0 ? "from-red-500 to-rose-700" : "from-slate-400 to-slate-600", shadow: noGPS > 0 ? "shadow-red-500/30" : "shadow-slate-400/20" },
+        ].map((c, i) => (
+          <div key={c.label} className={`relative overflow-hidden bg-linear-to-br ${c.bg} rounded-3xl p-6 text-white shadow-xl ${c.shadow} transform transition-all duration-300 hover:scale-105 hover:-translate-y-1 group`}>
+            <div className="absolute top-[-20%] right-[-10%] w-32 h-32 rounded-full bg-white/10 blur-xl group-hover:bg-white/20 transition-all duration-500"></div>
+            <div className="absolute bottom-[-10%] left-[-10%] w-24 h-24 rounded-full bg-black/10 blur-lg"></div>
+            
+            <div className="relative z-10 flex items-start justify-between">
+              <div>
+                <div className="text-sm font-semibold opacity-90 uppercase tracking-widest mb-1">{c.label}</div>
+                <div className="text-4xl font-black mt-2 tracking-tight">{c.val}</div>
+              </div>
+              <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
+                <c.icon className="h-7 w-7 text-white" />
+              </div>
+            </div>
+            
+            {/* Animated Loading/Progress line decoration */}
+            <div className="absolute bottom-0 left-0 h-1 w-full bg-black/10">
+              <div className="h-full bg-white/40" style={{ width: '40%', animation: `shimmer ${2 + i * 0.5}s infinite linear` }}></div>
+            </div>
           </div>
         ))}
       </div>
 
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(300%); }
+        }
+      `}} />
+
       {/* GPS Warning */}
       {noGPS > 0 && (
-        <div className="bg-white rounded-[28px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-5 border-l-4 border-amber-400 flex items-center gap-3">
-          <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-5 border-l-4 border-amber-400 flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
           <p className="text-sm font-semibold text-slate-700">
             <strong>{noGPS} team{noGPS > 1 ? "s" : ""}</strong> {noGPS > 1 ? "have" : "has"} no GPS location.
             Auto-assign proximity skips teams without coordinates.
@@ -225,89 +282,173 @@ export default function FieldPage() {
       )}
 
       {/* Teams Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {teams.map(team => (
           <div key={team.id}
-            className={`bg-white rounded-[28px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 hover:shadow-[0_12px_40px_rgb(0,0,0,0.08)] transition-all flex flex-col gap-5 ${
+            className={`bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_12px_40px_rgb(0,0,0,0.08)] transition-all overflow-hidden flex flex-col ${
               !hasLocation(team) ? "ring-2 ring-amber-200" : ""
             }`}>
-            {/* Header row */}
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-[#f4f7fe] flex items-center justify-center text-2xl flex-shrink-0">
-                  {typeEmoji[team.team_type] || "🚨"}
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-[#051522] leading-tight">{team.team_name}</h3>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${typeBadge[team.team_type]}`}>
-                    {team.team_type}
-                  </span>
+            {/* Header - White background */}
+            <div className="bg-white border-b border-slate-100 p-5">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-[#f4f7fe] flex items-center justify-center text-2xl">
+                    {typeEmoji[team.team_type] || "🚨"}
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-[#051522] leading-tight text-lg">{team.team_name}</h3>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${typeBadge[team.team_type]}`}>
+                      {team.team_type}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${statusDot[team.status]}`} />
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusBadge[team.status]}`}>
-                  {team.status}
-                </span>
+
+              {/* Status Selection Buttons */}
+              <div className="flex gap-2 flex-wrap">
+                {['Available', 'Assigned', 'Busy', 'Completed'].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => {
+                      // Validate status transitions
+                      if (team.status === s) return; // Already in this state
+                      if (team.status === 'Completed' && s !== 'Available') return; // From Completed, only to Available
+                      if (team.status === 'Available' && !['Assigned'].includes(s)) return; // From Available, only to Assigned
+                      if (team.status === 'Assigned' && !['Busy', 'Available'].includes(s)) return; // From Assigned, to Busy or Available
+                      if (team.status === 'Busy' && !['Completed', 'Available'].includes(s)) return; // From Busy, to Completed or Available
+                      updateStatus(team.id, s);
+                    }}
+                    disabled={
+                      team.status === s ||
+                      (team.status === 'Completed' && s !== 'Available') ||
+                      (team.status === 'Available' && s !== 'Assigned') ||
+                      (team.status === 'Assigned' && !['Busy', 'Available'].includes(s)) ||
+                      (team.status === 'Busy' && !['Completed', 'Available'].includes(s))
+                    }
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      team.status === s
+                        ? `text-white shadow-md ${
+                            s === 'Available' ? 'bg-blue-500' :
+                            s === 'Assigned' ? 'bg-indigo-500' :
+                            s === 'Busy' ? 'bg-purple-500' :
+                            'bg-slate-400'
+                          }`
+                        : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
+                  >
+                    {s}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-2 text-center">
-              {[
-                { label: "Leader", val: team.leader_name || "—" },
-                { label: "Members", val: `${team.member_count} pax` },
-                { label: "Missions", val: `${team.completed_assignments}/${team.total_assignments}` },
-                { label: "Phone", val: team.phone || "—" },
-              ].map(s => (
-                <div key={s.label} className="bg-[#f4f7fe] rounded-2xl py-2 px-3">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</div>
-                  <div className="text-xs font-extrabold text-[#051522] mt-0.5 truncate">{s.val}</div>
+            {/* Content */}
+            <div className="p-6 flex flex-col gap-5 flex-1">
+              {/* Team Info Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[#f4f7fe] rounded-xl p-3">
+                  <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Leader</div>
+                  <div className="text-sm font-extrabold text-[#051522] truncate">{team.leader_name || "—"}</div>
                 </div>
-              ))}
-            </div>
-
-            {/* Location Block */}
-            <div className={`rounded-2xl p-3 ${hasLocation(team) ? "bg-blue-50 border border-blue-100" : "bg-amber-50 border border-amber-200"}`}>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-1.5 text-xs font-extrabold text-slate-700">
-                  <MapPin className="h-3.5 w-3.5" />
-                  Current Location
+                <div className="bg-[#f4f7fe] rounded-xl p-3">
+                  <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Members</div>
+                  <div className="text-sm font-extrabold text-[#051522]">{team.member_count} pax</div>
                 </div>
-                <button onClick={() => openModal("location", team)}
-                  className="flex items-center gap-1 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-[#f4f7fe] transition-colors">
-                  <Navigation className="h-3 w-3" /> Update
-                </button>
+                <div className="bg-[#f4f7fe] rounded-xl p-3">
+                  <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Missions</div>
+                  <div className="text-sm font-extrabold text-[#051522]">{team.completed_assignments}/{team.total_assignments}</div>
+                </div>
+                <div className="bg-[#f4f7fe] rounded-xl p-3">
+                  <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">Phone</div>
+                  <div className="text-sm font-extrabold text-[#051522] truncate">{team.phone || "—"}</div>
+                </div>
               </div>
-              {hasLocation(team) ? (
-                <div className="font-mono text-xs text-blue-700 font-semibold">
-                  {Number(team.current_latitude).toFixed(4)}°N, {Number(team.current_longitude).toFixed(4)}°E
-                  <div className="text-[10px] font-bold text-blue-500 mt-0.5">✓ GPS active · used for auto-assign</div>
-                </div>
-              ) : (
-                <div className="text-xs font-bold text-amber-700">⚠ No GPS — will be skipped in auto-assign</div>
-              )}
-            </div>
 
-            {/* Action button */}
-            <div>
+              {/* Location Block */}
+              <div className={`rounded-xl p-3.5 ${hasLocation(team) ? "bg-blue-50 border border-blue-100" : "bg-amber-50 border border-amber-200"}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-xs font-extrabold">
+                    <MapPin className={`h-4 w-4 ${hasLocation(team) ? 'text-blue-600' : 'text-amber-600'}`} />
+                    <span className={hasLocation(team) ? 'text-blue-700' : 'text-amber-700'}>GPS Location</span>
+                  </div>
+                  <button onClick={() => openModal("location", team)}
+                    className={`flex items-center gap-1 px-2 py-1 bg-white rounded-lg text-xs font-bold transition-colors ${
+                      hasLocation(team) ? 'text-blue-600 border border-blue-200 hover:bg-blue-50' : 'text-amber-600 border border-amber-200 hover:bg-amber-50'
+                    }`}>
+                    <Navigation className="h-3 w-3" /> Update
+                  </button>
+                </div>
+                {hasLocation(team) ? (
+                  <div className="font-mono text-xs font-bold text-blue-700">
+                    {Number(team.current_latitude).toFixed(4)}°N, {Number(team.current_longitude).toFixed(4)}°E
+                  </div>
+                ) : (
+                  <div className="text-xs font-bold text-amber-700">⚠ No GPS coordinates set</div>
+                )}
+              </div>
+
+              {/* Assign to Emergency Button - Only when Available */}
               {team.status === "Available" && (
-                <button onClick={() => openModal("assign", team)}
-                  className="w-full py-2.5 bg-[#051522] text-white rounded-xl text-sm font-extrabold hover:bg-[#0a243a] transition-all shadow-md">
+                <button
+                  onClick={() => openModal("assign", team)}
+                  className="w-full py-2.5 bg-[#051522] text-white rounded-xl text-sm font-extrabold hover:bg-[#0a243a] transition-all shadow-md"
+                >
                   Assign to Emergency
                 </button>
               )}
-              {(team.status === "Assigned" || team.status === "Busy") && (
-                <button onClick={() => updateStatus(team.id, "Available")}
-                  className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-extrabold hover:bg-blue-700 transition-all shadow-md">
-                  Mark Available
-                </button>
-              )}
-              {team.status === "Off Duty" && (
-                <button onClick={() => updateStatus(team.id, "Available")}
-                  className="w-full py-2.5 bg-slate-600 text-white rounded-xl text-sm font-extrabold hover:bg-slate-700 transition-all shadow-md">
-                  Activate
-                </button>
+
+              {/* Activity History Button */}
+              <button onClick={() => toggleActivityHistory(team.id)}
+                className="w-full flex items-center justify-between py-2.5 px-3.5 bg-[#f4f7fe] hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-600 transition-colors border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  Activity History ({(activityMap[team.id] || []).length})
+                </div>
+                {expandedActivityId === team.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+
+              {/* Activity History Expanded */}
+              {expandedActivityId === team.id && (
+                <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 max-h-64 overflow-y-auto">
+                  {loadingActivity[team.id] ? (
+                    <div className="flex items-center justify-center py-6">
+                      <RefreshCw className="h-4 w-4 text-slate-400 animate-spin" />
+                      <span className="text-xs text-slate-400 ml-2">Loading...</span>
+                    </div>
+                  ) : (activityMap[team.id] || []).length === 0 ? (
+                    <div className="text-center py-6 text-slate-400 text-xs font-medium">
+                      No activity recorded
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {(activityMap[team.id] || []).slice(0, 15).map((activity, idx) => (
+                        <div key={activity.id || idx} className="flex gap-2.5">
+                          <div className="flex flex-col items-center pt-1">
+                            <div className={`w-2 h-2 rounded-full ${
+                              activity.activity_type === 'LOCATION_UPDATE' ? 'bg-blue-500' :
+                              activity.activity_type.includes('STATUS') ? 'bg-purple-500' :
+                              'bg-slate-400'
+                            }`} />
+                            {idx < Math.min((activityMap[team.id]?.length || 0), 15) - 1 && (
+                              <div className="w-0.5 h-4 bg-slate-200 my-0.5" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold text-slate-700">
+                              {activity.activity_type.replace(/_/g, ' ')}
+                            </div>
+                            <div className="text-xs text-slate-600 line-clamp-2">
+                              {activity.description}
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {new Date(activity.logged_at).toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -317,7 +458,7 @@ export default function FieldPage() {
       {/* ── UPDATE LOCATION MODAL ── */}
       {modal === "location" && activeTeam && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-[28px] shadow-2xl max-w-lg w-full p-8" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h2 className="text-xl font-extrabold text-[#051522]">Update Team Location</h2>
@@ -357,7 +498,7 @@ export default function FieldPage() {
       {/* ── ASSIGN MODAL ── */}
       {modal === "assign" && activeTeam && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-[28px] shadow-2xl max-w-sm w-full p-8" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h2 className="text-xl font-extrabold text-[#051522]">Assign to Emergency</h2>
@@ -395,7 +536,7 @@ export default function FieldPage() {
       {/* ── CREATE MODAL ── */}
       {modal === "create" && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setModal(null)}>
-          <div className="bg-white rounded-[28px] shadow-2xl max-w-md w-full p-8" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-extrabold text-[#051522]">Create Rescue Team</h2>
               <button onClick={() => setModal(null)} className="p-2 hover:bg-[#f4f7fe] rounded-xl">

@@ -1,12 +1,36 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { PackageOpen, AlertTriangle, RefreshCw, Plus, X, Send, Box, Droplets, Pill, Home, Wrench, Shirt } from "lucide-react";
+import { PackageOpen, AlertTriangle, RefreshCw, Plus, X, Send, Box, Droplets, Pill, Home, Wrench, Shirt, Layers, Database } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface Resource {
   id: number; name: string; category: string; quantity: number; unit: string;
   threshold_min: number; warehouse_name: string; stock_status: string;
+}
+
+interface Allocation {
+  id: number;
+  resource_id: number;
+  resource_name: string;
+  unit: string;
+  category: string;
+  warehouse_name: string;
+  emergency_id: number | null;
+  quantity_allocated: number;
+  status: string;
+  notes: string | null;
+  allocated_at: string;
+  allocated_by_name: string;
+}
+
+interface Emergency {
+  id: number;
+  disaster_type_name: string;
+  severity: string;
+  status: string;
+  location_description: string | null;
+  reported_at: string;
 }
 
 const catIcon: Record<string, any> = {
@@ -25,6 +49,8 @@ const catColor: Record<string, string> = {
 export default function WarehousePage() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [alerts, setAlerts]       = useState<Resource[]>([]);
+  const [allocations, setAllocations] = useState<Allocation[]>([]);
+  const [emergencies, setEmergencies] = useState<Emergency[]>([]);
   const [loading, setLoading]     = useState(true);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [showAllocate, setShowAllocate] = useState<Resource | null>(null);
@@ -36,9 +62,16 @@ export default function WarehousePage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [resData, alertData] = await Promise.all([api("/resources"), api("/resources/alerts")]);
-      setResources(resData.data);
-      setAlerts(alertData.data);
+      const [resData, alertData, allocData, emergencyData] = await Promise.all([
+        api("/resources"),
+        api("/resources/alerts"),
+        api("/resources/allocations"),
+        api("/emergencies"),
+      ]);
+      setResources(Array.isArray(resData.data) ? resData.data : []);
+      setAlerts(Array.isArray(alertData.data) ? alertData.data : []);
+      setAllocations(Array.isArray(allocData.data) ? allocData.data : []);
+      setEmergencies(Array.isArray(emergencyData.data) ? emergencyData.data : []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }, []);
@@ -86,6 +119,14 @@ export default function WarehousePage() {
   const lowStock   = resources.filter(r => r.stock_status === "LOW STOCK").length;
   const totalQty   = resources.reduce((s, r) => s + r.quantity, 0);
   const totalItems = resources.length;
+  const recentAllocations = allocations.slice(0, 6);
+
+  const getEmergencyLabel = (emergencyId: number | null) => {
+    if (!emergencyId) return "No emergency linked";
+    const emergency = emergencies.find(item => item.id === emergencyId);
+    if (!emergency) return `Emergency #${emergencyId}`;
+    return `#${emergency.id} · ${emergency.disaster_type_name}`;
+  };
 
   const inputCls = "w-full px-4 py-2.5 bg-[#f4f7fe] border-0 rounded-xl text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4318FF]/30 transition-all";
 
@@ -109,20 +150,41 @@ export default function WarehousePage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { label: "Total Items",   val: totalItems, sub: "resource types", icon: "📦", bg: "from-blue-600 to-indigo-700" },
-          { label: "Total Stock",   val: totalQty.toLocaleString(), sub: "combined units", icon: "📊", bg: "from-[#051522] to-[#0a243a]" },
-          { label: "Low Stock Alerts", val: lowStock, sub: "need restocking", icon: "⚠️", bg: lowStock > 0 ? "from-red-500 to-rose-600" : "from-slate-500 to-slate-700" },
-        ].map(c => (
-          <div key={c.label} className={`bg-gradient-to-br ${c.bg} rounded-[28px] p-6 text-white shadow-lg`}>
-            <div className="text-3xl mb-3">{c.icon}</div>
-            <div className="text-3xl font-extrabold">{c.val}</div>
-            <div className="text-sm font-semibold opacity-80 mt-1">{c.label}</div>
-            <div className="text-xs opacity-60 mt-0.5">{c.sub}</div>
+          { label: "Total Items",   val: totalItems, sub: "resource types", icon: Layers, bg: "from-blue-600 to-blue-800", shadow: "shadow-blue-500/30" },
+          { label: "Total Stock",   val: totalQty.toLocaleString(), sub: "combined units", icon: Database, bg: "from-emerald-500 to-emerald-700", shadow: "shadow-emerald-500/30" },
+          { label: "Low Stock Alerts", val: lowStock, sub: "need restocking", icon: AlertTriangle, bg: lowStock > 0 ? "from-red-500 to-rose-700" : "from-slate-400 to-slate-600", shadow: lowStock > 0 ? "shadow-red-500/30" : "shadow-slate-400/20" },
+        ].map((c, i) => (
+          <div key={c.label} className={`relative overflow-hidden bg-gradient-to-br ${c.bg} rounded-[24px] p-6 text-white shadow-xl ${c.shadow} transform transition-all duration-300 hover:scale-105 hover:-translate-y-1 group`}>
+            <div className="absolute top-[-20%] right-[-10%] w-32 h-32 rounded-full bg-white/10 blur-xl group-hover:bg-white/20 transition-all duration-500"></div>
+            <div className="absolute bottom-[-10%] left-[-10%] w-24 h-24 rounded-full bg-black/10 blur-lg"></div>
+            
+            <div className="relative z-10 flex items-start justify-between">
+              <div>
+                <div className="text-sm font-semibold opacity-90 uppercase tracking-widest mb-1">{c.label}</div>
+                <div className="text-4xl font-black mt-2 tracking-tight">{c.val}</div>
+                <div className="text-xs opacity-75 mt-1 font-medium">{c.sub}</div>
+              </div>
+              <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
+                <c.icon className="h-7 w-7 text-white" />
+              </div>
+            </div>
+
+            {/* Animated Loading/Progress line decoration */}
+            <div className="absolute bottom-0 left-0 h-1 w-full bg-black/10">
+              <div className="h-full bg-white/40" style={{ width: '40%', animation: `shimmer ${2 + i * 0.5}s infinite linear` }}></div>
+            </div>
           </div>
         ))}
       </div>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(300%); }
+        }
+      `}} />
 
       {/* Low Stock Banner */}
       {alerts.length > 0 && (
@@ -140,6 +202,52 @@ export default function WarehousePage() {
           </div>
         </div>
       )}
+
+      {/* Recent Dispatches */}
+      <div className="bg-white rounded-[28px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-extrabold text-[#051522]">Recent Dispatches</h3>
+            <p className="text-sm text-slate-500 mt-1">Requests you submitted for emergencies appear here, then move to Dispatched after approval.</p>
+          </div>
+          <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#f4f7fe] text-slate-600">{allocations.length} total</span>
+        </div>
+        {recentAllocations.length === 0 ? (
+          <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-2xl p-4">
+            No resource dispatches yet. Use Dispatch Resource on a card to create the first request.
+          </div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {recentAllocations.map(allocation => (
+              <div key={allocation.id} className="rounded-2xl border border-slate-200 bg-[#f8fafc] p-4 flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-extrabold text-[#051522]">{allocation.resource_name}</div>
+                    <div className="text-xs text-slate-500 mt-1">{allocation.quantity_allocated} {allocation.unit} · {allocation.category}</div>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold border ${
+                    allocation.status === "Dispatched"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : allocation.status === "Pending"
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-slate-100 text-slate-600 border-slate-200"
+                  }`}>
+                    {allocation.status || "Pending"}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-500">
+                  <div><span className="font-bold text-slate-700">Emergency:</span> {getEmergencyLabel(allocation.emergency_id)}</div>
+                  <div className="mt-1"><span className="font-bold text-slate-700">Warehouse:</span> {allocation.warehouse_name}</div>
+                  <div className="mt-1"><span className="font-bold text-slate-700">By:</span> {allocation.allocated_by_name}</div>
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  {new Date(allocation.allocated_at).toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Category Filter */}
       <div className="flex gap-2 flex-wrap">
@@ -229,9 +337,19 @@ export default function WarehousePage() {
               </div>
               <div>
                 <label className="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-1.5 block">Emergency ID (optional)</label>
-                <input type="number" value={allocForm.emergency_id}
+                <select value={allocForm.emergency_id}
                   onChange={e => setAllocForm({ ...allocForm, emergency_id: e.target.value })}
-                  placeholder="Link to an emergency" className={inputCls} />
+                  className={inputCls}>
+                  <option value="">Select an emergency</option>
+                  {emergencies.map(emergency => (
+                    <option key={emergency.id} value={emergency.id}>
+                      #{emergency.id} · {emergency.disaster_type_name} · {emergency.severity}
+                    </option>
+                  ))}
+                </select>
+                <div className="text-[11px] text-slate-400 mt-1">
+                  The chosen emergency is saved with the dispatch request so approval can link the stock to that incident.
+                </div>
               </div>
               <div>
                 <label className="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-1.5 block">Notes</label>

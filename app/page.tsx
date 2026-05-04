@@ -91,10 +91,10 @@ function AnalyticsVisual() {
 
 function RolesVisual() {
   const roles = [
-    { role: "Administrator", color: "bg-red-100 text-red-700", icon: "🛡️" },
-    { role: "Emergency Operator", color: "bg-orange-100 text-orange-700", icon: "📡" },
-    { role: "Field Officer", color: "bg-blue-100 text-blue-700", icon: "🗺️" },
-    { role: "Warehouse Manager", color: "bg-green-100 text-green-700", icon: "📦" },
+    { role: "Administrator", color: "bg-red-100 text-red-700", icon: "S" },
+    { role: "Emergency Operator", color: "bg-orange-100 text-orange-700", icon: "O" },
+    { role: "Field Officer", color: "bg-blue-100 text-blue-700", icon: "F" },
+    { role: "Warehouse Manager", color: "bg-green-100 text-green-700", icon: "W" },
   ];
 
   return (

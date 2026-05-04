@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Banknote, Plus, RefreshCw, X, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { Banknote, Plus, RefreshCw, X, TrendingUp, TrendingDown, Wallet, DollarSign, ShoppingCart, Scale, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface Transaction {
@@ -16,11 +16,11 @@ interface Budget {
   disaster_type: string; severity: string; emergency_status: string; created_at: string;
 }
 
-const typeCfg: Record<string, { badge: string; emoji: string }> = {
-  Donation:     { badge: "bg-blue-50 text-blue-700 border-blue-200",    emoji: "💰" },
-  Expense:      { badge: "bg-red-50 text-red-700 border-red-200",       emoji: "💸" },
-  Procurement:  { badge: "bg-indigo-50 text-indigo-700 border-indigo-200", emoji: "🛒" },
-  Distribution: { badge: "bg-violet-50 text-violet-700 border-violet-200", emoji: "📦" },
+const typeCfg: Record<string, { badge: string; icon: React.ElementType }> = {
+  Donation:     { badge: "bg-blue-50 text-blue-700 border-blue-200",    icon: ArrowDownRight },
+  Expense:      { badge: "bg-red-50 text-red-700 border-red-200",       icon: ArrowUpRight },
+  Procurement:  { badge: "bg-indigo-50 text-indigo-700 border-indigo-200", icon: ShoppingCart },
+  Distribution: { badge: "bg-violet-50 text-violet-700 border-violet-200", icon: Wallet },
 };
 const statusCfg: Record<string, string> = {
   Completed: "bg-blue-50 text-blue-700 border-blue-200",
@@ -97,9 +97,9 @@ export default function FinancePage() {
   const utilBar    = (pct: number) => pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-orange-400" : pct >= 50 ? "bg-amber-400" : "bg-[#4318FF]";
   const inputCls   = "w-full px-4 py-2.5 bg-[#f4f7fe] border-0 rounded-xl text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4318FF]/30 transition-all";
 
-  const tabs: { id: Tab; label: string; emoji: string }[] = [
-    { id: "transactions", label: "Transactions",    emoji: "💳" },
-    { id: "budgets",      label: "Disaster Budgets", emoji: "📊" },
+  const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+    { id: "transactions", label: "Transactions",     icon: Banknote },
+    { id: "budgets",      label: "Disaster Budgets", icon: Wallet },
   ];
 
   return (
@@ -132,17 +132,30 @@ export default function FinancePage() {
 
       {/* KPI Banners — Transactions */}
       {activeTab === "transactions" && totals && (
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { label: "Total Donations",  val: totals.total_donations,  icon: "💰", bg: "from-blue-600 to-indigo-700" },
-            { label: "Total Expenses",   val: totals.total_expenses,   icon: "💸", bg: "from-red-500 to-rose-600" },
-            { label: "Procurement",      val: totals.total_procurement, icon: "🛒", bg: "from-violet-600 to-purple-700" },
-            { label: "Net Balance",      val: totals.total_donations - totals.total_expenses - totals.total_procurement, icon: "⚖️", bg: "from-[#051522] to-[#0a243a]" },
-          ].map(c => (
-            <div key={c.label} className={`bg-gradient-to-br ${c.bg} rounded-[28px] p-5 text-white shadow-lg`}>
-              <div className="text-3xl mb-2">{c.icon}</div>
-              <div className="text-2xl font-extrabold">${Number(c.val).toLocaleString()}</div>
-              <div className="text-xs font-semibold opacity-75 mt-1">{c.label}</div>
+            { label: "Total Donations",  val: totals.total_donations,  icon: ArrowDownRight, bg: "from-blue-600 to-blue-800", shadow: "shadow-blue-500/30" },
+            { label: "Total Expenses",   val: totals.total_expenses,   icon: ArrowUpRight, bg: "from-rose-500 to-rose-700", shadow: "shadow-rose-500/30" },
+            { label: "Procurement",      val: totals.total_procurement, icon: ShoppingCart, bg: "from-purple-600 to-indigo-700", shadow: "shadow-purple-500/30" },
+            { label: "Net Balance",      val: totals.total_donations - totals.total_expenses - totals.total_procurement, icon: Scale, bg: "from-slate-700 to-slate-900", shadow: "shadow-slate-500/30" },
+          ].map((c, i) => (
+            <div key={c.label} className={`relative overflow-hidden bg-gradient-to-br ${c.bg} rounded-[24px] p-6 text-white shadow-xl ${c.shadow} transform transition-all duration-300 hover:scale-105 hover:-translate-y-1 group`}>
+              <div className="absolute top-[-20%] right-[-10%] w-32 h-32 rounded-full bg-white/10 blur-xl group-hover:bg-white/20 transition-all duration-500"></div>
+              <div className="absolute bottom-[-10%] left-[-10%] w-24 h-24 rounded-full bg-black/10 blur-lg"></div>
+              
+              <div className="relative z-10 flex items-start justify-between">
+                <div>
+                  <div className="text-sm font-semibold opacity-90 uppercase tracking-widest mb-1">{c.label}</div>
+                  <div className="text-3xl font-black mt-2 tracking-tight">${Number(c.val).toLocaleString()}</div>
+                </div>
+                <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
+                  <c.icon className="h-7 w-7 text-white" />
+                </div>
+              </div>
+              
+              <div className="absolute bottom-0 left-0 h-1 w-full bg-black/10">
+                <div className="h-full bg-white/40" style={{ width: '40%', animation: `shimmer ${2 + i * 0.5}s infinite linear` }}></div>
+              </div>
             </div>
           ))}
         </div>
@@ -174,7 +187,7 @@ export default function FinancePage() {
                 ? "bg-white text-[#051522] shadow-sm"
                 : "text-slate-500 hover:text-[#051522]"
             }`}>
-            {t.emoji} {t.label}
+            <t.icon className="h-4 w-4 mr-2" /> {t.label}
           </button>
         ))}
       </div>
@@ -184,14 +197,16 @@ export default function FinancePage() {
         <>
           {/* Type filter pills */}
           <div className="flex gap-2 flex-wrap">
-            {["all", "Donation", "Expense", "Procurement", "Distribution"].map(f => (
+            {["all", "Donation", "Expense", "Procurement", "Distribution"].map(f => {
+              const Icon = typeCfg[f]?.icon;
+              return (
               <button key={f} onClick={() => setTypeFilter(f)}
-                className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
+                className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all flex items-center ${
                   typeFilter === f ? "bg-[#051522] text-white shadow-md" : "bg-white text-slate-600 border border-slate-200 hover:bg-[#f4f7fe]"
                 }`}>
-                {f === "all" ? "All Types" : `${typeCfg[f]?.emoji || ""} ${f}`}
+                {f !== "all" && Icon && <Icon className="w-4 h-4 mr-2" />} {f === "all" ? "All Types" : f}
               </button>
-            ))}
+            )})}
           </div>
 
           <div className="bg-white rounded-[28px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
@@ -205,12 +220,14 @@ export default function FinancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTx.map(tx => (
+                  {filteredTx.map(tx => {
+                    const TypeIcon = typeCfg[tx.transaction_type]?.icon;
+                    return (
                     <tr key={tx.id} className="border-b border-slate-50 hover:bg-[#f4f7fe] transition-colors">
                       <td className="px-5 py-3 font-mono text-xs text-slate-400">#{tx.id}</td>
                       <td className="px-5 py-3">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${typeCfg[tx.transaction_type]?.badge || "bg-slate-100 text-slate-700 border-slate-200"}`}>
-                          {typeCfg[tx.transaction_type]?.emoji} {tx.transaction_type}
+                        <span className={`px-2.5 py-1 flex w-fit items-center rounded-full text-xs font-bold border ${typeCfg[tx.transaction_type]?.badge || "bg-slate-100 text-slate-700 border-slate-200"}`}>
+                          {TypeIcon && <TypeIcon className="w-3 h-3 mr-1" />} {tx.transaction_type}
                         </span>
                       </td>
                       <td className="px-5 py-3 text-slate-600 text-xs">{tx.category || "—"}</td>
@@ -222,7 +239,7 @@ export default function FinancePage() {
                       <td className="px-5 py-3 text-slate-400 text-xs">{new Date(tx.transaction_date).toLocaleDateString()}</td>
                       <td className="px-5 py-3 text-slate-500 text-xs">{tx.recorded_by_name}</td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
               {filteredTx.length === 0 && !loading && (

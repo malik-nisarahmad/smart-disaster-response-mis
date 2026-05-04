@@ -92,16 +92,30 @@ export default function ApprovalsPage() {
       </div>
 
       {/* KPI Banners */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: "Pending",  val: pending,            bg: "from-amber-500 to-orange-500" },
-          { label: "Approved", val: approved,           bg: "from-blue-600 to-indigo-700" },
-          { label: "Rejected", val: rejected,           bg: "from-red-500 to-rose-600" },
-          { label: "Total",    val: approvals.length,   bg: "from-[#051522] to-[#0a243a]" },
-        ].map(c => (
-          <div key={c.label} className={`bg-gradient-to-br ${c.bg} rounded-[28px] p-5 text-white shadow-lg`}>
-            <div className="text-3xl font-extrabold">{c.val}</div>
-            <div className="text-sm font-semibold opacity-75 mt-1">{c.label} Requests</div>
+          { label: "Pending",  val: pending,            icon: Clock, bg: "from-amber-500 to-orange-500", shadow: "shadow-orange-500/30" },
+          { label: "Approved", val: approved,           icon: Check, bg: "from-blue-600 to-indigo-700", shadow: "shadow-blue-500/30" },
+          { label: "Rejected", val: rejected,           icon: XIcon, bg: "from-red-500 to-rose-600", shadow: "shadow-rose-500/30" },
+          { label: "Total",    val: approvals.length,   icon: ClipboardCheck, bg: "from-[#051522] to-[#0a243a]", shadow: "shadow-slate-500/30" },
+        ].map((c, i) => (
+          <div key={c.label} className={`relative overflow-hidden bg-gradient-to-br ${c.bg} rounded-[24px] p-6 text-white shadow-xl ${c.shadow} transform transition-all duration-300 hover:scale-105 hover:-translate-y-1 group`}>
+            <div className="absolute top-[-20%] right-[-10%] w-32 h-32 rounded-full bg-white/10 blur-xl group-hover:bg-white/20 transition-all duration-500"></div>
+            <div className="absolute bottom-[-10%] left-[-10%] w-24 h-24 rounded-full bg-black/10 blur-lg"></div>
+            
+            <div className="relative z-10 flex items-start justify-between">
+              <div>
+                <div className="text-sm font-semibold opacity-90 uppercase tracking-widest mb-1">{c.label} Requests</div>
+                <div className="text-3xl font-black mt-2 tracking-tight">{c.val}</div>
+              </div>
+              <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
+                <c.icon className="h-7 w-7 text-white" />
+              </div>
+            </div>
+            
+            <div className="absolute bottom-0 left-0 h-1 w-full bg-black/10">
+              <div className="h-full bg-white/40" style={{ width: '40%', animation: `shimmer ${2 + i * 0.5}s infinite linear` }}></div>
+            </div>
           </div>
         ))}
       </div>

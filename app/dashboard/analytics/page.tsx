@@ -3,17 +3,36 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  AreaChart, Area, ComposedChart, Line, Scatter, Sector
 } from "recharts";
 import { Filter, RefreshCw, Zap, ClipboardList, Activity } from "lucide-react";
 import { api } from "@/lib/api";
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+const GRADIENTS = ['url(#gradBlue)', 'url(#gradGreen)', 'url(#gradYellow)', 'url(#gradRed)', 'url(#gradPurple)', 'url(#gradCyan)'];
+
+const renderActiveShape = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+  return (
+    <g>
+      <text x={cx} y={cy - 10} dy={8} textAnchor="middle" fill={fill} className="font-bold text-lg">
+        {payload.disaster_type}
+      </text>
+      <text x={cx} y={cy + 15} dy={8} textAnchor="middle" fill="#64748b" className="text-sm">
+        {`${(percent * 100).toFixed(1)}%`}
+      </text>
+      <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 10} startAngle={startAngle} endAngle={endAngle} fill={fill} filter="url(#shadow3d)" />
+      <Sector cx={cx} cy={cy} startAngle={startAngle} endAngle={endAngle} innerRadius={outerRadius + 14} outerRadius={outerRadius + 18} fill={fill} />
+    </g>
+  );
+};
 
 type Tab = "incidents" | "approvals" | "performance";
 
 export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("incidents");
+  const [pieActiveIndex, setPieActiveIndex] = useState(0);
   const [incidentsData, setIncidentsData] = useState<any>(null);
   const [approvalsData, setApprovalsData] = useState<any>(null);
   const [perfData, setPerfData] = useState<any[]>([]);
@@ -35,8 +54,8 @@ export default function AnalyticsPage() {
         api("/analytics/response-times"),
       ]);
       setIncidentsData(inc);
-      setResourcesData(res.byCategory || []);
-      setResponseTimes(rTimes.data || []);
+      setResourcesData(Array.isArray(res.byCategory) ? res.byCategory : []);
+      setResponseTimes(Array.isArray(rTimes.data) ? rTimes.data : []);
     } catch (error) {
       console.error("Failed to fetch analytics:", error);
     } finally {
@@ -55,7 +74,7 @@ export default function AnalyticsPage() {
     setLoading(true);
     try {
       const data = await api("/analytics/performance");
-      setPerfData(data.data || []);
+      setPerfData(Array.isArray(data.data) ? data.data : []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }, []);
@@ -91,6 +110,49 @@ export default function AnalyticsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <svg width="0" height="0">
+        <defs>
+          <filter id="shadow3d" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="3" dy="10" stdDeviation="6" floodColor="#000" floodOpacity="0.3" />
+          </filter>
+          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+          <linearGradient id="gradBlue" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#3b82f6" stopOpacity={1}/>
+            <stop offset="95%" stopColor="#1e3a8a" stopOpacity={1}/>
+          </linearGradient>
+          <linearGradient id="gradGreen" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#10b981" stopOpacity={1}/>
+            <stop offset="95%" stopColor="#065f46" stopOpacity={1}/>
+          </linearGradient>
+          <linearGradient id="gradYellow" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#f59e0b" stopOpacity={1}/>
+            <stop offset="95%" stopColor="#78350f" stopOpacity={1}/>
+          </linearGradient>
+          <linearGradient id="gradRed" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#ef4444" stopOpacity={1}/>
+            <stop offset="95%" stopColor="#7f1d1d" stopOpacity={1}/>
+          </linearGradient>
+          <linearGradient id="gradPurple" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={1}/>
+            <stop offset="95%" stopColor="#4c1d95" stopOpacity={1}/>
+          </linearGradient>
+          <linearGradient id="gradCyan" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#06b6d4" stopOpacity={1}/>
+            <stop offset="95%" stopColor="#164e63" stopOpacity={1}/>
+          </linearGradient>
+          <linearGradient id="colorInd" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+          </linearGradient>
+          <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+          </linearGradient>
+        </defs>
+      </svg>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -159,89 +221,106 @@ export default function AnalyticsPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Incidents by Type — Pie */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-              <h3 className="font-bold mb-4">Incidents by Disaster Type</h3>
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm transform transition duration-500 hover:scale-[1.02]">
+              <h3 className="font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Incidents by Disaster Type</h3>
               <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={incidentsData?.byType || []} cx="50%" cy="50%" outerRadius={90} dataKey="count" nameKey="disaster_type" label={({ disaster_type, count }) => `${disaster_type}: ${count}`}>
+                    <Pie 
+                      data={incidentsData?.byType || []} 
+                      cx="50%" cy="50%" 
+                      innerRadius={60} 
+                      outerRadius={90} 
+                      dataKey="count" 
+                      nameKey="disaster_type"
+                      // @ts-ignore Recharts activeIndex type issue in some versions
+                      activeIndex={pieActiveIndex}
+                      // @ts-ignore
+                      activeShape={renderActiveShape}
+                      onMouseEnter={(_, index) => setPieActiveIndex(index)}
+                      isAnimationActive={true}
+                      animationDuration={1200}
+                      animationEasing="ease-out"
+                    >
                       {(incidentsData?.byType || []).map((_: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={GRADIENTS[index % GRADIENTS.length]} filter="url(#shadow3d)" />
                       ))}
                     </Pie>
-                    <Tooltip />
-                    <Legend />
+                    <Tooltip contentStyle={{ borderRadius: '10px', boxShadow: '0px 10px 15px -3px rgba(0,0,0,0.1)' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             {/* Incidents by Severity — Bar (drill-down applied) */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-              <h3 className="font-bold mb-1">Incidents by Severity</h3>
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm transform transition duration-500 hover:scale-[1.02]">
+              <h3 className="font-bold mb-1 bg-clip-text text-transparent bg-gradient-to-r from-red-600 to-orange-500">Incidents by Severity</h3>
               <p className="text-xs text-slate-400 mb-3">{severityFilter !== "all" ? `Filtered: ${severityFilter}` : "All severities"}</p>
               <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={filteredBySeverity}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="severity" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                      {filteredBySeverity.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  <BarChart data={filteredBySeverity} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.4} />
+                    <XAxis dataKey="severity" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <YAxis allowDecimals={false} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0px 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]} isAnimationActive={true}>
+                      {filteredBySeverity.map((_: any, i: number) => <Cell key={i} fill={GRADIENTS[i % GRADIENTS.length]} filter="url(#glow)" />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            {/* Incidents by Status — Bar (drill-down applied) */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-              <h3 className="font-bold mb-1">Incidents by Status</h3>
+            {/* Incidents by Status — Area (drill-down applied) */}
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm transform transition duration-500 hover:scale-[1.02]">
+              <h3 className="font-bold mb-1 bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-500">Incidents by Status</h3>
               <p className="text-xs text-slate-400 mb-3">{statusFilter !== "all" ? `Filtered: ${statusFilter}` : "All statuses"}</p>
               <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={filteredByStatus}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="status" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                  <AreaChart data={filteredByStatus} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.4} />
+                    <XAxis dataKey="status" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <YAxis allowDecimals={false} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <Tooltip cursor={{ stroke: '#8b5cf6', strokeWidth: 2 }} contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0px 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                    <Area type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorInd)" filter="url(#glow)" isAnimationActive={true} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            {/* Response Times — Bar */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-              <h3 className="font-bold mb-1">Avg Response Time (Minutes)</h3>
+            {/* Response Times — Composed */}
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm transform transition duration-500 hover:scale-[1.02]">
+              <h3 className="font-bold mb-1 bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 to-teal-500">Avg Response Time (Minutes)</h3>
               <p className="text-xs text-slate-400 mb-3">{severityFilter !== "all" ? `Filtered by: ${severityFilter}` : "All severities"}</p>
               <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={filteredResponseTimes}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="disaster_type" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="avg_response_minutes" name="Avg Mins" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                  <ComposedChart data={filteredResponseTimes} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.4} />
+                    <XAxis dataKey="disaster_type" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0px 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                    <Bar dataKey="avg_response_minutes" name="Avg Mins" fill="url(#gradCyan)" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={true}>
+                      {filteredResponseTimes.map((_: any, i: number) => <Cell key={`r-${i}`} filter="url(#shadow3d)" />)}
+                    </Bar>
+                    <Line type="monotone" dataKey="avg_response_minutes" stroke="#10b981" strokeWidth={3} dot={{ r: 6, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} />
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             {/* Resource Inventory by Category */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm lg:col-span-2">
-              <h3 className="font-bold mb-4">Resource Stock by Category</h3>
-              <div className="h-[260px]">
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm lg:col-span-2 transform transition duration-500 hover:scale-[1.01]">
+              <h3 className="font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-green-500">Resource Stock by Category</h3>
+              <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={resourcesData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="category" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="total_quantity" name="Total Quantity" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                  <AreaChart data={resourcesData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.4} />
+                    <XAxis dataKey="category" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0px 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                    <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                    <Area type="monotone" dataKey="total_quantity" name="Total Quantity" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorVal)" filter="url(#glow)" isAnimationActive={true} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -253,35 +332,49 @@ export default function AnalyticsPage() {
       {activeTab === "approvals" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* By Type */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <h3 className="font-bold mb-4">Approvals by Request Type</h3>
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm transform transition duration-500 hover:scale-[1.02]">
+            <h3 className="font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Approvals by Request Type</h3>
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={approvalsData?.byType || []}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="request_type" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="approved" name="Approved" fill="#10b981" stackId="a" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="rejected" name="Rejected" fill="#ef4444" stackId="a" />
-                  <Bar dataKey="pending" name="Pending" fill="#f59e0b" stackId="a" radius={[4, 4, 0, 0]} />
+                <BarChart data={approvalsData?.byType || []} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.4} />
+                  <XAxis dataKey="request_type" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0px 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                  <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                  <Bar dataKey="approved" name="Approved" fill="url(#gradGreen)" stackId="a" radius={[0, 0, 0, 0]} filter="url(#shadow3d)" />
+                  <Bar dataKey="rejected" name="Rejected" fill="url(#gradRed)" stackId="a" filter="url(#shadow3d)" />
+                  <Bar dataKey="pending" name="Pending" fill="url(#gradYellow)" stackId="a" radius={[6, 6, 0, 0]} filter="url(#shadow3d)" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           {/* By Priority — Pie */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <h3 className="font-bold mb-4">Approvals by Priority</h3>
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm transform transition duration-500 hover:scale-[1.02]">
+            <h3 className="font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">Approvals by Priority</h3>
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={approvalsData?.byPriority || []} cx="50%" cy="50%" outerRadius={90} dataKey="total" nameKey="priority" label={({ priority, total }) => `${priority}: ${total}`}>
-                    {(approvalsData?.byPriority || []).map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  <Pie 
+                    data={approvalsData?.byPriority || []} 
+                    cx="50%" cy="50%" 
+                    innerRadius={60} 
+                    outerRadius={90} 
+                    dataKey="total" 
+                    nameKey="priority" 
+                    // @ts-ignore
+                    activeIndex={pieActiveIndex}
+                    // @ts-ignore
+                    activeShape={renderActiveShape}
+                    onMouseEnter={(_, index) => setPieActiveIndex(index)}
+                    isAnimationActive={true}
+                    animationDuration={1200}
+                  >
+                    {(approvalsData?.byPriority || []).map((_: any, i: number) => <Cell key={i} fill={GRADIENTS[i % GRADIENTS.length]} filter="url(#shadow3d)" />)}
                   </Pie>
-                  <Tooltip />
-                  <Legend />
+                  <Tooltip contentStyle={{ borderRadius: '10px', boxShadow: '0px 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                  <Legend wrapperStyle={{ paddingTop: '10px' }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>

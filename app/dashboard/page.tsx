@@ -103,52 +103,70 @@ export default function DashboardOverview() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             
             {/* Card 1: Active Incidents */}
-            <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] animate-fade-in-up flex items-center justify-between" style={{ animationDelay: "100ms" }}>
-              <div>
+            <div className="relative overflow-hidden bg-white rounded-[24px] p-6 sm:p-8 shadow-xl shadow-slate-200/50 transform transition-all duration-300 hover:scale-105 hover:-translate-y-1 group flex items-center justify-between" style={{ animationDelay: "100ms" }}>
+              {/* Background accent glow */}
+              <div className="absolute top-[-20%] right-[-10%] w-32 h-32 rounded-full bg-blue-100 blur-2xl group-hover:bg-blue-200 transition-all duration-500"></div>
+              
+              <div className="relative z-10">
                 <div className="flex items-end gap-2 mb-2">
-                  <h3 className="text-4xl font-extrabold text-slate-900">{stats?.active_emergencies || 0}</h3>
+                  <h3 className="text-5xl font-black text-slate-800 tracking-tight">{stats?.active_emergencies || 0}</h3>
                   <span className="text-lg font-bold text-slate-400 mb-1">/ {activeEmergenciesGoal}</span>
                 </div>
-                <p className="text-slate-600 font-bold">Active<br />Emergencies</p>
+                <p className="text-sm font-bold uppercase tracking-widest text-slate-500">Active<br />Emergencies</p>
               </div>
-              <div className="relative w-24 h-24">
+              <div className="relative w-28 h-28 z-10">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={[{value: emergenciesPercent}, {value: 100 - emergenciesPercent}]} cx="50%" cy="50%" innerRadius={30} outerRadius={40} dataKey="value" startAngle={90} endAngle={-270} stroke="none">
-                      <Cell fill="#4318FF" />
-                      <Cell fill="#F4F7FE" />
+                    <Pie data={[{value: emergenciesPercent}, {value: 100 - emergenciesPercent}]} cx="50%" cy="50%" innerRadius={35} outerRadius={48} dataKey="value" startAngle={90} endAngle={-270} stroke="none" isAnimationActive={true}>
+                      <Cell fill="url(#colorBlueGrad)" />
+                      <Cell fill="#F1F5F9" />
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center font-bold text-slate-900 text-sm">
+                <div className="absolute inset-0 flex items-center justify-center font-extrabold text-blue-600 text-lg">
                   {emergenciesPercent}%
                 </div>
               </div>
             </div>
 
             {/* Card 2: Deployed Teams */}
-            <div className="bg-white rounded-[28px] p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] animate-fade-in-up flex items-center justify-between" style={{ animationDelay: "200ms" }}>
-              <div>
+            <div className="relative overflow-hidden bg-white rounded-[24px] p-6 sm:p-8 shadow-xl shadow-slate-200/50 transform transition-all duration-300 hover:scale-105 hover:-translate-y-1 group flex items-center justify-between" style={{ animationDelay: "200ms" }}>
+              <div className="absolute top-[-20%] right-[-10%] w-32 h-32 rounded-full bg-emerald-100 blur-2xl group-hover:bg-emerald-200 transition-all duration-500"></div>
+              
+              <div className="relative z-10">
                 <div className="flex items-end gap-2 mb-2">
-                  <h3 className="text-4xl font-extrabold text-slate-900">{(stats?.total_teams || 0) - (stats?.available_teams || 0)}</h3>
+                  <h3 className="text-5xl font-black text-slate-800 tracking-tight">{(stats?.total_teams || 0) - (stats?.available_teams || 0)}</h3>
                   <span className="text-lg font-bold text-slate-400 mb-1">/ {stats?.total_teams || 0}</span>
                 </div>
-                <p className="text-slate-600 font-bold">Deployed<br />Rescue Teams</p>
+                <p className="text-sm font-bold uppercase tracking-widest text-slate-500">Deployed<br />Rescue Teams</p>
               </div>
-              <div className="relative w-24 h-24">
+              <div className="relative w-28 h-28 z-10">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={[{value: deployedTeamsPercent}, {value: 100 - deployedTeamsPercent}]} cx="50%" cy="50%" innerRadius={30} outerRadius={40} dataKey="value" startAngle={90} endAngle={-270} stroke="none">
-                      <Cell fill="#0052FF" />
-                      <Cell fill="#F4F7FE" />
+                    <Pie data={[{value: deployedTeamsPercent}, {value: 100 - deployedTeamsPercent}]} cx="50%" cy="50%" innerRadius={35} outerRadius={48} dataKey="value" startAngle={90} endAngle={-270} stroke="none" isAnimationActive={true}>
+                      <Cell fill="url(#colorGreenGrad)" />
+                      <Cell fill="#F1F5F9" />
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center font-bold text-slate-900 text-sm">
+                <div className="absolute inset-0 flex items-center justify-center font-extrabold text-emerald-600 text-lg">
                   {deployedTeamsPercent}%
                 </div>
               </div>
             </div>
+
+            <svg width="0" height="0">
+              <defs>
+                <linearGradient id="colorBlueGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={1}/>
+                  <stop offset="95%" stopColor="#1e3a8a" stopOpacity={1}/>
+                </linearGradient>
+                <linearGradient id="colorGreenGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={1}/>
+                  <stop offset="95%" stopColor="#065f46" stopOpacity={1}/>
+                </linearGradient>
+              </defs>
+            </svg>
 
           </div>
 
