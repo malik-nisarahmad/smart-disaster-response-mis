@@ -6,7 +6,7 @@ interface RequestOptions {
   headers?: Record<string, string>;
 }
 
-export async function api(endpoint: string, options: RequestOptions = {}) {
+export async function api<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
   const config: RequestInit = {
@@ -26,7 +26,7 @@ export async function api(endpoint: string, options: RequestOptions = {}) {
   
   // Safely parse — server might return HTML on 404 / not-started errors
   const text = await response.text();
-  let data: Record<string, unknown> = {};
+  let data: any = {};
   try {
     data = JSON.parse(text);
   } catch {
@@ -40,7 +40,7 @@ export async function api(endpoint: string, options: RequestOptions = {}) {
     throw new Error((data.error as string) || 'Something went wrong');
   }
 
-  return data;
+  return data as T;
 }
 
 export function getToken(): string | null {

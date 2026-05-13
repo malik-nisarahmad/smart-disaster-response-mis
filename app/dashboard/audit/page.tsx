@@ -30,7 +30,7 @@ export default function AuditPage() {
 
   const fetchLogs = async () => {
     setLoading(true);
-    try { const data = await api("/analytics/audit-logs"); setLogs(data.data); }
+    try { const data = await api<{ data: AuditLog[] }>("/analytics/audit-logs"); setLogs(data.data); }
     catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
