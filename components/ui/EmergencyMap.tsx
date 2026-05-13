@@ -12,12 +12,14 @@ interface Emergency {
   longitude: number;
   location_description: string;
   status: string;
+  // Allow other properties to exist
+  [key: string]: any;
 }
 
 interface EmergencyMapProps {
   emergencies: Emergency[];
   selected: Emergency | null;
-  onSelect: (em: Emergency) => void;
+  onSelect: (em: Emergency | null) => void;
 }
 
 const severityColor: Record<string, string> = {
