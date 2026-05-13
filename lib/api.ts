@@ -1,9 +1,4 @@
-// Detect if we are running in a browser and in production
-const isProd = typeof window !== 'undefined' && 
-  (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1');
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 
-  (isProd ? '/_/backend/api' : 'http://localhost:5000/api');
+const API_BASE = '/api';
 
 interface RequestOptions {
   method?: string;

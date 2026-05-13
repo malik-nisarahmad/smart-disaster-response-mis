@@ -18,6 +18,15 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: "http://localhost:5000/api/:path*",
+      },
+    ];
+  },
+
   // ── Security Headers ──────────────────────────────────────────────────────
   async headers() {
     return [
@@ -46,7 +55,7 @@ const nextConfig: NextConfig = {
               // Allow OSM tile images + cdnjs marker icons + local blobs/data
               "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com https://unpkg.com",
               // Allow backend API + Nominatim geocoding + OSM tile servers
-              "connect-src 'self' http://localhost:5000 https://localhost:5000 https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org",
+              "connect-src 'self' http://localhost:5000 https://localhost:5000 https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org https://*.vercel.app",
               // Leaflet loads marker images as workers/blobs in some builds
               "worker-src 'self' blob:",
             ].join("; "),
