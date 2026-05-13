@@ -1,84 +1,86 @@
 require('dotenv').config();
-const sql = require('mssql/msnodesqlv8');
+const { Pool } = require('pg');
 
-const config = {
-  server: process.env.DB_HOST || 'localhost\\SQLEXPRESS',
-  database: process.env.DB_NAME || 'disaster_response_mis',
-  driver: 'ODBC Driver 17 for SQL Server',
-  options: {
-    trustedConnection: true,
-    encrypt: false,
-    trustServerCertificate: true,
-  },
-};
+// Vercel Postgres provides POSTGRES_URL, or use a local fallback
+const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/disaster_response_mis';
 
-const poolPromise = new sql.ConnectionPool(config)
-  .connect()
-  .then(pool => {
-    console.log('Database connected successfully (MSSQL)');
-    return pool;
-  })
-  .catch(err => {
-    console.error('Database connection failed:', err.message);
-  });
+const pool = new Pool({
+  connectionString,
+  // Use SSL for Vercel production, disable for local development
+  ssl: process.env.NODE_ENV === 'production' || connectionString.includes('neon.tech') 
+    ? { rejectUnauthorized: false } 
+    : false
+});
 
-async function executeQuery(request, queryStr, params = []) {
-  params.forEach((param, index) => {
-    if (param === null || param === undefined) {
-      request.input(`param${index}`, sql.NVarChar, '');
-    } else if (typeof param === 'number') {
-      if (Number.isInteger(param)) request.input(`param${index}`, sql.Int, param);
-      else request.input(`param${index}`, sql.Float, param);
-    } else if (typeof param === 'boolean') {
-      request.input(`param${index}`, sql.Bit, param);
-    } else if (param instanceof Date) {
-      request.input(`param${index}`, sql.DateTime, param);
-    } else {
-      request.input(`param${index}`, sql.NVarChar, param.toString());
+// Test connection
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('Database connection error (PostgreSQL):', err.message);
+  } else {
+    console.log('Database connected successfully (PostgreSQL)');
+  }
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle PostgreSQL client', err);
+  process.exit(-1);
+});
+
+/**
+ * Executes a SQL query with parameters.
+ * Automatically translates `?` placeholders to PostgreSQL `$1, $2` format.
+ */
+async function executeQuery(queryStr, params = []) {
+  try {
+    let pgQuery = queryStr;
+    let paramCount = 1;
+    
+    // Replace ? with $1, $2, etc.
+    pgQuery = pgQuery.replace(/\?/g, () => `$${paramCount++}`);
+
+    // If it's an INSERT, append RETURNING id to get the insertId (equivalent to SCOPE_IDENTITY)
+    if (pgQuery.trim().toUpperCase().startsWith('INSERT') && !pgQuery.toUpperCase().includes('RETURNING')) {
+      pgQuery += ' RETURNING id AS "insertId"';
     }
-  });
-  
-  let mssqlQuery = queryStr;
-  let paramCount = 0;
-  mssqlQuery = mssqlQuery.replace(/\?/g, () => `@param${paramCount++}`);
-  
-  if (mssqlQuery.trim().toUpperCase().startsWith('INSERT') && !mssqlQuery.toUpperCase().includes('SCOPE_IDENTITY')) {
-     mssqlQuery += '; SELECT SCOPE_IDENTITY() AS insertId;';
-  }
-  
-  const result = await request.query(mssqlQuery);
-  
-  if (mssqlQuery.trim().toUpperCase().startsWith('INSERT') || mssqlQuery.trim().toUpperCase().startsWith('UPDATE') || mssqlQuery.trim().toUpperCase().startsWith('DELETE')) {
-     let insertId;
-     if (result.recordsets && result.recordsets.length > 0 && result.recordsets[result.recordsets.length - 1].length > 0) {
-        insertId = result.recordsets[result.recordsets.length - 1][0].insertId;
-     } else if (result.recordset && result.recordset.length > 0 && result.recordset[0].insertId !== undefined) {
-        insertId = result.recordset[0].insertId;
-     }
-     return [{ insertId: insertId, affectedRows: result.rowsAffected ? result.rowsAffected[0] : 0 }];
-  }
-  
-  if (result.recordset) {
-     return [result.recordset, result.recordsets];
-  }
-  else {
-     return [{ affectedRows: result.rowsAffected ? result.rowsAffected[0] : 0 }];
+
+    const result = await pool.query(pgQuery, params);
+
+    // Format response to match the old MSSQL behavior
+    if (pgQuery.trim().toUpperCase().startsWith('INSERT') || 
+        pgQuery.trim().toUpperCase().startsWith('UPDATE') || 
+        pgQuery.trim().toUpperCase().startsWith('DELETE')) {
+      
+      let insertId;
+      if (result.rows && result.rows.length > 0 && result.rows[0].insertId !== undefined) {
+        insertId = result.rows[0].insertId;
+      }
+      return [{ insertId: insertId, affectedRows: result.rowCount || 0 }];
+    }
+
+    // For SELECT queries
+    if (result.rows) {
+      return [result.rows, [result.rows]];
+    } else {
+      return [{ affectedRows: result.rowCount || 0 }];
+    }
+
+  } catch (error) {
+    console.error('Database Query Error:', error.message);
+    // Add context to error
+    if (error.code === '23505') {
+      throw { message: 'A record with this unique value already exists.', status: 409 };
+    }
+    throw {
+      message: 'Database query failed',
+      error: error.message,
+      status: 500
+    };
   }
 }
 
 module.exports = {
-  query: async (queryStr, params = []) => {
-    try {
-      const pool = await poolPromise;
-      if (!pool) throw new Error('Database pool failed to initialize.');
-      const request = pool.request();
-      return await executeQuery(request, queryStr, params);
-    } catch (err) {
-      throw err;
-    }
-  },
+  query: executeQuery,
   getConnection: async () => {
-    const pool = await poolPromise;
     if (!pool) throw new Error('Database pool failed to initialize.');
     const transaction = new sql.Transaction(pool);
     return {
