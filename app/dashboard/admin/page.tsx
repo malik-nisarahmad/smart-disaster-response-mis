@@ -38,13 +38,13 @@ export default function AdminPage() {
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
-    try { const data = await api<{ data: User[] }>("/analytics/users"); setUsers(data.data); }
+    try { const data = await api<{ data: User[] }>("/analytics/users"); setUsers(data.data as any); }
     catch (err) { console.error(err); }
     finally { setLoading(false); }
   }, []);
 
   const fetchRoles = useCallback(async () => {
-    try { const data = await api<{ roles: Role[] }>("/auth/roles"); setRoles(data.roles); }
+    try { const data = await api<{ roles: Role[] }>("/auth/roles"); setRoles(data.roles as any); }
     catch (err) { console.error(err); }
   }, []);
 
