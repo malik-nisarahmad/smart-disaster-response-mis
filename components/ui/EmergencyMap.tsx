@@ -4,17 +4,7 @@ import React, { useEffect } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
-interface Emergency {
-  id: number;
-  disaster_type_name: string;
-  severity: string;
-  latitude: number;
-  longitude: number;
-  location_description: string;
-  status: string;
-  // Allow other properties to exist
-  [key: string]: any;
-}
+import { Emergency } from "@/lib/types";
 
 interface EmergencyMapProps {
   emergencies: Emergency[];

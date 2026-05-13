@@ -20,26 +20,7 @@ const EmergencyMap = dynamic(() => import("@/components/ui/EmergencyMap"), {
   )
 });
 
-interface Emergency {
-  id: number;
-  reporter_name: string;
-  reporter_phone: string;
-  disaster_type_name: string;
-  severity: string;
-  latitude: number;
-  longitude: number;
-  location_description: string;
-  description: string;
-  status: string;
-  operator_name: string | null;
-  reported_at: string;
-  // New enriched fields from updated API
-  active_teams: number;
-  assigned_teams: string | null;
-  admitted_patients: number;
-  allocated_budget: number | null;
-  spent_budget: number | null;
-}
+import { Emergency } from "@/lib/types";
 
 const severityConfig: Record<string, { color: string; bg: string; dot: string }> = {
   Critical: { color: "text-red-700", bg: "bg-red-50", dot: "bg-red-500" },

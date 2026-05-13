@@ -24,14 +24,7 @@ interface Allocation {
   allocated_by_name: string;
 }
 
-interface Emergency {
-  id: number;
-  disaster_type_name: string;
-  severity: string;
-  status: string;
-  location_description: string | null;
-  reported_at: string;
-}
+import { Emergency } from "@/lib/types";
 
 const catIcon: Record<string, any> = {
   Food: "🍚", Water: "💧", Medicine: "💊", Shelter: "⛺", Equipment: "🔧", Clothing: "👕", Other: "📦",
